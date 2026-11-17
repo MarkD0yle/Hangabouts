@@ -146,7 +146,7 @@ Then suggest a commit message: `M1: menu bar skeleton`. Commit only if the human
 
 ## 7. Later milestones
 
-When the human says "M1 works, build M2", follow the M2 section of Spec 002 the same way: build, check against its tests, stop and report.
+**M1 is done.** For M2, use `KICKOFF-M2.md`. Later milestones follow the same pattern: build, check against the tests, stop and report.
 
 | Milestone | Spec 002 tests to check |
 |---|---|

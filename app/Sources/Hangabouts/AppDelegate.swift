@@ -7,7 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var creature: CreatureController!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength) // the icon is wider than it is tall
 
         statusItem.button?.setAccessibilityLabel("Hangabouts")
 
@@ -22,7 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Resting: Snuffler's head. Hanging: his burrow, with the swing's rope running down to the creature panel.
+    /// Resting: his eyes peek out of his burrow. Hanging: the empty burrow, with the swing's rope running down to the creature panel.
     private func updateIcon(hanging: Bool) {
         guard let button = statusItem.button else { return }
         let barHeight = button.bounds.height > 0 ? button.bounds.height : NSStatusBar.system.thickness

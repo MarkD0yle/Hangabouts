@@ -77,7 +77,7 @@ sandbox-002/.claude/settings.json   Already created. Hooks post to port 7788
 - It sends messages to Swift through `window.webkit.messageHandlers.hangabout`: `{type: "ready"}`, `"shown"`, `"clicked"` and `"climbed"`.
 - The page is exactly 270×262 px with a transparent background. Snuffler hangs by one hand from a swing: two ropes from the top centre, (135, 0), down to a wooden bar. The page is wider than he is, so he can swing and turn.
 - **Redesigned after M2:** Snuffler is now a 3D model drawn live with WebGL (no libraries). Extra calls: `hangabout.turn(angle)`, `hangabout.setIdle(true or false)`, `hangabout.setZoom(zoom)`. The page also sends `{type: "error", message}` if WebGL fails. Design pages are in `design/`.
-- **Menu bar icon:** drawn in code (`MenuBarIcon.swift`). Resting, it's Snuffler's head. While he hangs, it's his burrow with the swing's rope running down to the panel. `app-assets/menubar-icon*.png` is no longer used.
+- **Menu bar icon:** drawn in code (`MenuBarIcon.swift`). It's his burrow, the hole he drops out of. Resting, his eyes and nose peek out. While he hangs, the hole is empty and the swing's rope runs from it down to the panel. `app-assets/menubar-icon*.png` is no longer used.
 - **Risk:** idle life (blink, sniff, breathing) breaks "then completely still". It's off by default, behind Debug › Idle life.
 
 ## Behaviour

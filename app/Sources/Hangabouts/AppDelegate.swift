@@ -9,19 +9,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
 
-        if let button = statusItem.button {
-            if let image = Bundle.main.image(forResource: "menubar-icon") {
-                image.size = NSSize(width: 18, height: 18)
-                image.isTemplate = false // the icon is coloured
-                button.image = image
-            } else {
-                button.title = "H" // fallback if resources are missing
-            }
-            button.setAccessibilityLabel("Hangabouts")
-        }
+        statusItem.button?.setAccessibilityLabel("Hangabouts")
 
         creature = CreatureController(statusItem: statusItem)
+        creature.onHangingChanged = { [weak self] hanging in self?.updateIcon(hanging: hanging) }
+        updateIcon(hanging: false)
         statusItem.menu = buildMenu()
+
+        // For checking a build from a terminal: Hangabouts --simulate-needs
+        if CommandLine.arguments.contains("--simulate-needs") {
+            perform(#selector(simulateNeedsYou), with: nil, afterDelay: 1)
+        }
+    }
+
+    /// Resting: Snuffler's head. Hanging: his burrow, with his arm running down to the creature panel.
+    private func updateIcon(hanging: Bool) {
+        guard let button = statusItem.button else { return }
+        let barHeight = button.bounds.height > 0 ? button.bounds.height : NSStatusBar.system.thickness
+        button.image = hanging
+            ? MenuBarIcon.hanging(barHeight: barHeight, armWidth: CreatureController.armWidthAtFullSize * creature.scale)
+            : MenuBarIcon.resting(barHeight: barHeight)
     }
 
     // MARK: - Debug actions (M2)
@@ -42,6 +49,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func setSize(_ sender: NSMenuItem) {
         creature.setScale(CGFloat(sender.tag) / 100)
         sender.menu?.items.forEach { $0.state = ($0 === sender) ? .on : .off }
+        if creature.isShowing { updateIcon(hanging: true) } // the arm in the icon follows his size
+    }
+
+    @objc private func toggleIdleLife(_ sender: NSMenuItem) {
+        creature.setIdleLife(!creature.idleLife)
+        sender.state = creature.idleLife ? .on : .off
     }
 
     /// Debug › Size submenu. Tags are percentages.
@@ -96,6 +109,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         debugMenu.addItem(disabled("Simulate Done"))           // M5
         debugMenu.addItem(action("Clear all", #selector(clearAll)))
         debugMenu.addItem(sizeMenuItem())
+        let idle = action("Idle life (blink, sniff)", #selector(toggleIdleLife(_:))) // debug-only, off by default
+        idle.state = creature.idleLife ? .on : .off
+        debugMenu.addItem(idle)
         debugMenu.addItem(disabled("Short escalation timers")) // M5
         debugMenu.addItem(disabled("Open event log"))          // M3
         debug.submenu = debugMenu

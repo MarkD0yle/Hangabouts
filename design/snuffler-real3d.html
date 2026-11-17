@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snuffler real 3D</title>
+<style>
+:root{--ink:#1F2420;--muted:#667066;--line:#D8DCD3;--paper:#F6F7F3;--card:#FFFFFF;--blue:#2F5BD3;--z:1}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:860px;margin:0 auto;padding:24px 16px 56px}
+h1{font-size:24px;margin:0 0 4px}
+h2{font-size:16px;margin:18px 0 6px}
+p{margin:0 0 10px}
+.lede{color:var(--muted)}
+ul{margin:4px 0 0;padding-left:18px}
+li{margin:2px 0}
+
+.desk{position:relative;height:340px;border-radius:14px;overflow:hidden;border:1px solid var(--line);margin:16px 0 12px;
+  background:linear-gradient(160deg,#DCE8F2,#F3E9DA)}
+.desk.dark{background:linear-gradient(160deg,#1B2333,#3A2440)}
+.bar{position:absolute;inset:0 0 auto 0;height:26px;display:flex;align-items:center;justify-content:center;z-index:3;
+  background:rgba(255,255,255,.72);backdrop-filter:blur(8px)}
+.dark .bar{background:rgba(20,20,26,.72)}
+.bar svg{width:19px;height:19px;display:block;overflow:visible}
+/* The clip starts at the middle of the icon's burrow, so his arm comes out of the hole. */
+.below{position:absolute;inset:14px 0 0 0;overflow:hidden;z-index:4}
+#lip{position:absolute;top:3.5px;left:50%;margin-left:-9.5px;width:19px;height:19px;z-index:5;overflow:visible;pointer-events:none;opacity:0;transition:opacity .15s .1s}
+.out #lip{opacity:1}
+.ihead{transform-origin:50px 60px;transition:transform .32s cubic-bezier(.3,1.6,.5,1),opacity .15s}
+.out .ihead{transform:translateY(34px) scale(.5);opacity:0;transition:transform .2s ease-in,opacity .2s}
+.ihole{opacity:0;transform:scale(.4);transform-origin:50px 56px;transition:transform .2s ease-in,opacity .15s}
+.out .ihole{opacity:1;transform:none;transition:transform .28s cubic-bezier(.3,1.5,.5,1) .1s,opacity .15s .1s}
+.desk.still .ihead,.desk.still .ihole,.desk.still #lip{transition:none}
+
+/* stage: same 180x225 box as the app's page. The hand sits at (90, 10.8). */
+#stage{position:absolute;top:calc(-19px*var(--z));left:50%;width:calc(180px*var(--z));height:calc(225px*var(--z));margin-left:calc(-90px*var(--z))}
+#stage.hidden{visibility:hidden}
+#hit{all:unset;display:block;width:100%;height:100%;cursor:grab;touch-action:none}
+#hit:active{cursor:grabbing}
+#hit:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:12px}
+/* The canvas is wider than the stage so a swing or a turn is never cut off. 1 unit = 79px. */
+#gl{position:absolute;left:calc(-44.3px*var(--z));top:calc(-12.9px*var(--z));width:calc(268.6px*var(--z));height:calc(260.7px*var(--z));
+  filter:drop-shadow(1px 5px 5px rgba(20,12,4,.33));pointer-events:none}
+@keyframes hb-drop{0%{transform:translateY(-118%)}62%{transform:translateY(5%)}80%{transform:translateY(-1.5%)}100%{transform:translateY(0)}}
+@keyframes hb-climb{0%{transform:translateY(0)}18%{transform:translateY(4%)}100%{transform:translateY(-118%)}}
+#stage.dropping{animation:hb-drop .75s cubic-bezier(.3,1.1,.5,1) both}
+#stage.climbing{animation:hb-climb .65s cubic-bezier(.5,0,.8,.4) both}
+#stage.reduced{animation:none !important}
+
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.controls button,.controls select{font:inherit;font-size:14px;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.controls button.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.controls label{font-size:14px;display:inline-flex;gap:6px;align-items:center;padding:4px 6px}
+.turn{display:flex;gap:10px;align-items:center;margin:0 0 10px;font-size:14px}
+.turn input{flex:1;max-width:340px}
+.note{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-top:16px}
+.risk{color:#8A4B12}
+#err{color:#B3261E;font-weight:600}
+</style>
+</head>
+<body>
+<main>
+<h1>Snuffler: real 3D</h1>
+<p class="lede">A real 3D model, drawn live. He has depth, he turns left to right, and the light follows his shape. Drag him to turn him.</p>
+<p id="err" hidden></p>
+
+<div class="desk" id="desk">
+  <div class="bar">
+    <svg viewBox="0 0 100 100" aria-hidden="true">
+      <g class="ihole">
+        <ellipse cx="50" cy="56" rx="46" ry="27" fill="#4A2F1A"/>
+        <ellipse cx="50" cy="56" rx="42" ry="23" fill="#9C7A4E"/>
+        <ellipse cx="50" cy="57" rx="31" ry="15" fill="#1E1108"/>
+        <circle cx="10" cy="26" r="5" fill="#9C7A4E"/><circle cx="89" cy="25" r="4" fill="#9C7A4E"/>
+      </g>
+      <g class="ihead">
+        <g style="fill:#5A3812;stroke:#5A3812;stroke-width:9;stroke-linejoin:round">
+          <circle cx="38" cy="44" r="27"/><circle cx="20" cy="20" r="9"/>
+          <path d="M52 24 C74 30 88 52 90 80 C91 90 78 92 76 82 C72 66 64 60 48 62 Z"/>
+        </g>
+        <circle fill="#EDB547" cx="20" cy="20" r="9"/><circle fill="#EDB547" cx="38" cy="44" r="27"/>
+        <path fill="#C98A2B" d="M52 24 C74 30 88 52 90 80 C91 90 78 92 76 82 C72 66 64 60 48 62 Z"/>
+        <circle fill="#FFFDF6" stroke="#5A3812" stroke-width="4" cx="40" cy="40" r="12"/><circle fill="#231A12" cx="43" cy="41" r="6"/><circle fill="#fff" cx="45.5" cy="38" r="2.4"/>
+        <circle fill="#2A170E" cx="83" cy="82" r="6.5"/>
+      </g>
+    </svg>
+  </div>
+  <svg id="lip" viewBox="0 0 100 100" aria-hidden="true">
+    <path d="M6 56 A44 25 0 0 0 94 56" fill="none" stroke="#4A2F1A" stroke-width="20" stroke-linecap="round"/>
+    <path d="M6 56 A44 25 0 0 0 94 56" fill="none" stroke="#9C7A4E" stroke-width="12" stroke-linecap="round"/>
+  </svg>
+  <div class="below">
+    <div id="stage" class="hidden">
+      <button id="hit" type="button" aria-label="Snuffler needs you. Show details"><canvas id="gl"></canvas></button>
+    </div>
+  </div>
+</div>
+
+<div class="turn"><span>Turn</span><input id="yaw" type="range" min="-1.45" max="1.45" step="0.01" value="0.95" aria-label="Turn left to right"><button id="look" type="button" style="font:inherit;font-size:14px;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);cursor:pointer">Look around</button></div>
+<div class="controls">
+  <button class="primary" data-do="needs">Drop: needs you</button>
+  <button data-do="failed">Drop: failed</button>
+  <button data-do="n1">Nudge 1</button>
+  <button data-do="n2">Nudge 2</button>
+  <button data-do="climb">Climb</button>
+  <select id="size" aria-label="Size"><option value="1">100%</option><option value="0.5">50%</option><option value="0.35">35% (app default)</option></select>
+  <label><input type="checkbox" id="alive" checked> Idle life</label>
+  <label><input type="checkbox" id="dark"> Dark wallpaper</label>
+  <label><input type="checkbox" id="reduced"> Reduce motion</label>
+</div>
+
+<div class="note">
+<h2 style="margin-top:0">What's different</h2>
+<ul>
+<li>He's a real 3D shape now, not a drawing. Every frame is lit, shadowed and drawn live.</li>
+<li>He turns: left profile, front, right profile, and anything between. Drag him, or use the slider.</li>
+<li>He spins in as he drops, and the sign always swings round to face you.</li>
+<li>Parts have real depth: the snout comes toward you, the tail goes behind, the bag sits on his near hip.</li>
+<li>Swing, nudge, kick, blink, sniff and the failed pose all still work.</li>
+</ul>
+<h2>Risks</h2>
+<ul>
+<li class="risk">Cost. This draws on the graphics card every frame he moves. Smooth here; not measured in the app's web view or on an older Mac.</li>
+<li class="risk">Softer detail. The fur ticks, bag buckle, papers and monocle chain from the drawn version are simplified or gone.</li>
+<li class="risk">No third-party code is used, so the repo rule holds. But the model lives in shader code, which is harder to edit than a drawing.</li>
+<li class="risk">Idle life still breaks the spec's "completely still" rule. It's a toggle.</li>
+</ul>
+</div>
+</main>
+
+<script id="fs" type="x-shader/x-fragment">
+precision highp float;
+uniform vec2 uRes;
+uniform float uYaw, uSwing, uSignSwing, uSignYaw, uBlink, uKick, uTail, uSniff, uFail, uBreathe;
+
+float smin(float a, float b, float k){ float h = clamp(.5 + .5*(b-a)/k, 0., 1.); return mix(b, a, h) - k*h*(1.-h); }
+float sdEll(vec3 p, vec3 r){ float k0 = length(p/r); float k1 = length(p/(r*r)); return k0*(k0-1.)/k1; }
+float sdCap(vec3 p, vec3 a, vec3 b, float r1, float r2){
+  vec3 pa = p-a, ba = b-a; float h = clamp(dot(pa,ba)/dot(ba,ba), 0., 1.);
+  return length(pa - ba*h) - mix(r1, r2, h);
+}
+float sdBox(vec3 p, vec3 b, float r){ vec3 q = abs(p)-b; return length(max(q,0.)) + min(max(q.x,max(q.y,q.z)),0.) - r; }
+mat2 rot(float a){ float c = cos(a), s = sin(a); return mat2(c,-s,s,c); }
+
+// world -> Snuffler's own space. He swings about his hand (the origin) and turns about the vertical.
+vec3 toLocal(vec3 p){ p.xy = rot(uSwing)*p.xy; p.xz = rot(-uYaw)*p.xz; return p; }
+
+const vec3 HEAD = vec3(0., -.96, .06);
+const vec3 EYE_L = vec3(-.20, -.84, .345);   // big eye, with the monocle (his left, the near side when he faces right)
+const vec3 EYE_R = vec3( .19, -.86, .35);
+vec3 noseTip(){ return vec3(uSniff*.05, -1.55 + abs(uSniff)*.02, .84); }
+// the sign hangs from the nose and always turns to face the viewer
+vec3 toSign(vec3 p){
+  vec3 q = p - (noseTip() + vec3(0., -.09, 0.));
+  q.xz = rot(uYaw + uSignYaw)*q.xz;
+  q.xy = rot(uSignSwing)*q.xy;
+  return q;
+}
+
+// returns (distance, material). 1 fur, 3 nose, 4 eye, 5 gold, 6 bag, 7 strap, 8 card, 9 dark
+vec2 U(vec2 a, vec2 b){ return a.x < b.x ? a : b; }
+vec2 map(vec3 pw){
+  vec3 p = toLocal(pw);
+  float br = 1. + uBreathe;
+  float d = sdEll(p - vec3(0., -1.52, -.03), vec3(.43*br, .53, .41*br));
+  d = smin(d, length(p - HEAD) - .36, .10);
+  // hanging arm (his right): shoulder, elbow, then up into the burrow
+  d = smin(d, sdCap(p, vec3(.40,-1.14,0.), vec3(.42,-.52,0.), .09, .08), .07);
+  d = smin(d, sdCap(p, vec3(.42,-.52,0.), vec3(.03,-.02,0.), .08, .085), .05);
+  d = smin(d, sdCap(p, vec3(.03,-.02,0.), vec3(0.,.4,0.), .085, .085), .04);
+  // resting arm (his left) and hand
+  d = smin(d, sdCap(p, vec3(-.40,-1.12,.04), vec3(-.47,-1.50,.13), .08, .07), .07);
+  d = smin(d, length(p - vec3(-.47,-1.54,.14)) - .09, .03);
+  // ears (they droop when he's failed)
+  vec3 pe = p; pe.x = abs(pe.x);
+  d = smin(d, sdEll(pe - vec3(.30 + .04*uFail, -.68 - .09*uFail, -.02), vec3(.14,.14,.075)), .04);
+  // hair tuft
+  d = smin(d, sdCap(p, vec3(-.03,-.62,.06), vec3(-.07,-.49,.13), .032, .02), .03);
+  d = smin(d, sdCap(p, vec3(.04,-.62,.04), vec3(.07,-.50,.10), .032, .02), .03);
+  // legs and feet
+  vec3 pl = p - vec3(0., -1.9, 0.); pl.yz = rot(uKick)*pl.yz; pl.x = abs(pl.x);
+  d = smin(d, sdCap(pl, vec3(.17,0.,0.), vec3(.19,-.21,.02), .095, .085), .07);
+  d = smin(d, sdEll(pl - vec3(.20,-.28,.10), vec3(.115,.078,.18)), .04);
+  // snout: three tapering segments, forward then down
+  vec3 s0 = vec3(0.,-1.05,.28), s1 = vec3(0.,-1.05,.62), s2 = vec3(uSniff*.02,-1.28,.83), s3 = noseTip();
+  d = smin(d, sdCap(p, s0, s1, .175, .15), .09);
+  d = smin(d, sdCap(p, s1, s2, .15, .12), .06);
+  d = smin(d, sdCap(p, s2, s3, .12, .098), .05);
+  // tail: curls up behind him
+  vec3 pt = p - vec3(0., -1.80, -.33); pt.yz = rot(uTail)*pt.yz;
+  float tl = sdCap(pt, vec3(0.), vec3(0.,.00,-.30), .08, .072);
+  tl = smin(tl, sdCap(pt, vec3(0.,.00,-.30), vec3(0.,.26,-.44), .072, .066), .03);
+  tl = smin(tl, sdCap(pt, vec3(0.,.26,-.44), vec3(0.,.43,-.28), .066, .06), .03);
+  tl = smin(tl, sdCap(pt, vec3(0.,.43,-.28), vec3(0.,.36,-.15), .06, .055), .03);
+  d = smin(d, tl, .05);
+  vec2 res = vec2(d, 1.);
+
+  res = U(res, vec2(length(p - (s3 + vec3(0.,-.035,.01))) - .105, 3.));
+  res = U(res, vec2(length(p - EYE_L) - .125, 4.));
+  res = U(res, vec2(length(p - EYE_R) - .082, 4.));
+  // monocle: a gold ring standing just off the big eye
+  vec3 f = normalize(EYE_L - HEAD);
+  vec3 qm = p - (EYE_L + f*.075); float h = dot(qm, f);
+  res = U(res, vec2(length(vec2(length(qm - f*h) - .15, h)) - .022, 5.));
+  // brows
+  float tilt = .07*uFail;
+  res = U(res, vec2(sdCap(p, vec3(-.33,-.675+tilt,.26), vec3(-.10,-.655-tilt,.40), .022, .022), 9.));
+  res = U(res, vec2(sdCap(p, vec3(.12,-.745-tilt,.39), vec3(.27,-.755+tilt,.30), .018, .018), 9.));
+  // satchel on his left hip, strap over the right shoulder
+  vec3 qs = p - vec3(0., -1.40, -.02); qs.xy = rot(-.78)*qs.xy; qs.z *= 1.1;
+  res = U(res, vec2((length(vec2(length(qs.xz) - .435, qs.y*.6)) - .02)*.85, 7.));
+  res = U(res, vec2(sdBox(p - vec3(-.50,-1.67,.0), vec3(.07,.115,.165), .045), 6.));
+  res = U(res, vec2(sdBox(p - vec3(-.52,-1.50,-.03), vec3(.008,.07,.09), .006), 8.));
+  // string and sign
+  vec3 q = toSign(p);
+  res = U(res, vec2(sdCap(q, vec3(0.), vec3(0.,-.2,0.), .012, .012), 9.));
+  res = U(res, vec2(sdBox(q - vec3(0.,-.47,0.), vec3(.25,.225,.018), .04), 8.));
+  return res;
+}
+
+vec3 calcN(vec3 p){
+  vec2 e = vec2(.0015, -.0015);
+  return normalize(e.xyy*map(p+e.xyy).x + e.yyx*map(p+e.yyx).x + e.yxy*map(p+e.yxy).x + e.xxx*map(p+e.xxx).x);
+}
+float shadow(vec3 ro, vec3 rd){
+  float res = 1., t = .03;
+  for (int i = 0; i < 22; i++){
+    float h = map(ro + rd*t).x;
+    res = min(res, 9.*h/t);
+    t += clamp(h, .02, .16);
+    if (res < .02 || t > 1.8) break;
+  }
+  return clamp(res, 0., 1.);
+}
+float ao(vec3 p, vec3 n){
+  float o = 0., s = 1.;
+  for (int i = 1; i <= 4; i++){ float h = .045*float(i); o += (h - map(p + n*h).x)*s; s *= .62; }
+  return clamp(1. - 2.4*o, 0., 1.);
+}
+
+// "?" and "!" as 2D shapes on the card
+float glyph(vec2 u){
+  float dotd = length(u - vec2(0.,-.145)) - .036;
+  vec2 c = u - vec2(0., .065);
+  float hook = max(abs(length(c) - .078) - .028, -max(c.x, c.y + .01));
+  float stem = length(vec2(u.x, u.y - clamp(u.y, -.07, -.013))) - .028;
+  float qm = min(min(hook, stem), dotd);
+  float bang = min(length(vec2(u.x, u.y - clamp(u.y, -.05, .13))) - mix(.022, .04, clamp((u.y+.05)/.18, 0., 1.)), dotd);
+  return mix(qm, bang, step(.5, uFail));
+}
+
+void shade(vec3 pw, vec3 n, float m, out vec3 alb, out float gloss, out float specAmt){
+  vec3 p = toLocal(pw);
+  gloss = 12.; specAmt = .10;
+  if (m < 1.5){
+    alb = vec3(.90, .62, .17);
+    // belly patch
+    float b = sdEll(p - vec3(0., -1.60, .36), vec3(.27, .37, .20));
+    alb = mix(alb, vec3(1., .88, .58), smoothstep(.03, -.04, b));
+    // snout darkens toward the tip
+    float sn = smoothstep(.36, .9, p.z) * step(-1.72, p.y) * step(p.y, -.82);
+    alb = mix(alb, vec3(.62, .38, .10), sn*.85);
+    // ringed tail
+    if (p.z < -.36 && p.y > -1.95 && p.y < -1.2){
+      float a = atan(p.y + 1.60, p.z + .66);
+      alb = mix(vec3(.80,.52,.14), vec3(.42,.25,.07), smoothstep(-.15, .15, sin(a*6.5)));
+    }
+    // pink inside the ears, blush on the cheeks
+    vec2 ec = vec2(abs(p.x) - (.30 + .04*uFail), p.y + .68 + .09*uFail);
+    alb = mix(alb, vec3(.96,.55,.48), smoothstep(.095, .06, length(ec)) * step(.0, p.z));
+    alb = mix(alb, vec3(.97,.55,.45), .45*smoothstep(.13, .03, length(vec3(abs(p.x)-.27, p.y+1.06, p.z-.22))));
+  } else if (m < 3.5){
+    alb = vec3(.07,.04,.03); gloss = 60.; specAmt = .9;
+  } else if (m < 4.5){
+    bool big = p.x < 0.;
+    vec3 c = big ? EYE_L : EYE_R; float r = big ? .125 : .082;
+    vec3 fwd = normalize(vec3(big ? -.38 : .34, .02, 1.));
+    float a = dot(normalize(p - c), fwd);
+    alb = vec3(.97,.96,.93);
+    alb = mix(alb, mix(vec3(.82,.48,.14), vec3(.38,.19,.05), smoothstep(.86,.80,a)), smoothstep(.79,.81,a));
+    alb = mix(alb, vec3(.02), smoothstep(.925,.94,a));
+    gloss = 90.; specAmt = 1.;
+    // eyelid: closes on a blink, half closed when failed
+    float lid = mix(1.3, -1.2, uBlink);
+    if (big) lid = min(lid, mix(1.3, .22, uFail));
+    if ((p.y - c.y)/r > lid){ alb = vec3(.84,.57,.16); gloss = 12.; specAmt = .1; }
+  } else if (m < 5.5){
+    alb = vec3(.93,.70,.22); gloss = 50.; specAmt = 1.2;
+  } else if (m < 6.5){
+    alb = mix(vec3(.33,.46,.28), vec3(.45,.60,.38), smoothstep(-1.66, -1.60, p.y));
+    alb = mix(alb, vec3(.93,.76,.28), smoothstep(.03,.02, length(vec2(p.y+1.66, p.z-.0))) * step(p.x, -.55));
+    specAmt = .18; gloss = 20.;
+  } else if (m < 7.5){
+    alb = vec3(.26,.37,.22); specAmt = .12;
+  } else if (m < 8.5){
+    alb = vec3(.99,.99,.97); specAmt = .25; gloss = 30.;
+    vec3 q = toSign(p);
+    if (q.y < -.2 && q.z > 0.){
+      vec2 u = q.xy - vec2(0., -.47);
+      vec3 ink = mix(vec3(.16,.33,.85), vec3(.75,.12,.09), step(.5, uFail));
+      alb = mix(alb, ink, smoothstep(.006, -.006, glyph(u)));
+      alb = mix(alb, vec3(.86,.88,.84), smoothstep(.006, .0, abs(sdBox(vec3(u,0.), vec3(.20,.175,1.), .03)) - .004));
+    }
+  } else {
+    alb = vec3(.30,.18,.07); specAmt = .15;
+  }
+}
+
+void main(){
+  // 3.4 x 3.3 units of world. The hand is 0.3 units from the top.
+  vec2 uv = gl_FragCoord.xy / uRes;
+  vec3 ro = vec3((uv.x - .5)*3.4, .3 - (1. - uv.y)*3.3, 3.);
+  vec3 rd = vec3(0., 0., -1.);
+  float px = 3.4 / uRes.x;
+
+  float t = 0., minD = 1e3, m = 0.; bool hit = false;
+  for (int i = 0; i < 80; i++){
+    vec2 h = map(ro + rd*t);
+    minD = min(minD, h.x);
+    if (h.x < .0012){ hit = true; m = h.y; break; }
+    t += h.x * .92;
+    if (t > 6.) break;
+  }
+  if (!hit){
+    gl_FragColor = vec4(0.); return;
+  }
+  vec3 p = ro + rd*t;
+  vec3 n = calcN(p);
+  vec3 alb; float gloss, specAmt;
+  shade(p, n, m, alb, gloss, specAmt);
+  alb = pow(alb, vec3(2.2));
+
+  vec3 L = normalize(vec3(-.48, .78, .62));
+  vec3 V = vec3(0., 0., 1.);
+  float wrap = clamp((dot(n, L) + .32)/1.32, 0., 1.);
+  float sh = mix(.38, 1., shadow(p + n*.012, L));
+  float occ = ao(p, n);
+  vec3 sky = mix(vec3(.42,.30,.22), vec3(.62,.70,.86), n.y*.5 + .5);       // warm bounce below, cool sky above
+  vec3 col = alb * (sky*.42*occ + vec3(1.,.95,.86)*wrap*sh*1.25);
+  vec3 H = normalize(L + V);
+  col += specAmt * .6 * pow(max(dot(n, H), 0.), gloss) * sh * vec3(1.,.97,.9);
+  float fres = pow(1. - max(dot(n, V), 0.), 3.);
+  col += fres * (.10 + .16*max(n.y, 0.)) * mix(alb, vec3(1.,.95,.85), .5) * occ;   // rim light
+  col = pow(col, vec3(.4545));
+  // edge antialiasing from how grazing the surface is
+  float a = smoothstep(0., .22, dot(n, V) + .04);
+  gl_FragColor = vec4(col*a, a);
+}
+</script>
+
+<script>
+(function(){
+  const stage = document.getElementById('stage');
+  const hit = document.getElementById('hit');
+  const desk = document.getElementById('desk');
+  const canvas = document.getElementById('gl');
+  const yawInput = document.getElementById('yaw');
+  const REST = 0.95;                       // resting turn: three-quarter view, facing right
+  let reduced = false, alive = true, timers = [], pose = 'needs';
+  const post = (m) => { try { window.webkit.messageHandlers.hangabout.postMessage(m); } catch (e) { console.log('hangabout', m); } };
+  const clear = () => { timers.forEach(clearTimeout); timers = []; };
+  const later = (ms, fn) => timers.push(setTimeout(fn, ms));
+  const icon = (out) => { desk.classList.toggle('still', reduced); desk.classList.toggle('out', out); };
+
+  // ---------- WebGL, no libraries ----------
+  const gl = canvas.getContext('webgl', { premultipliedAlpha: true, alpha: true, antialias: false });
+  let prog, U = {};
+  function fail(msg){ const e = document.getElementById('err'); e.hidden = false; e.textContent = msg; }
+  if (!gl) fail('This browser has no WebGL, so the 3D Snuffler cannot draw.');
+  else {
+    const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { fail('Shader error: ' + gl.getShaderInfoLog(s)); console.error(gl.getShaderInfoLog(s)); } return s; };
+    prog = gl.createProgram();
+    gl.attachShader(prog, sh(gl.VERTEX_SHADER, 'attribute vec2 a; void main(){ gl_Position = vec4(a, 0., 1.); }'));
+    gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, document.getElementById('fs').textContent));
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) fail('Link error: ' + gl.getProgramInfoLog(prog));
+    gl.useProgram(prog);
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(prog, 'a'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    ['uRes','uYaw','uSwing','uSignSwing','uSignYaw','uBlink','uKick','uTail','uSniff','uFail','uBreathe'].forEach(n => U[n] = gl.getUniformLocation(prog, n));
+  }
+  function resize(){
+    const z = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--z')) || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(268.6 * z * dpr); canvas.height = Math.round(260.7 * z * dpr);
+    if (gl) gl.viewport(0, 0, canvas.width, canvas.height);
+    kick(0.1);
+  }
+
+  // ---------- motion ----------
+  const S = { yaw: REST, yawV: 0, yawT: REST, swingAt: -1e9, swingAmp: 0, kickAt: -1e9, busyUntil: 0, last: 0, running: false, drag: null };
+  const now = () => performance.now() / 1000;
+  const damped = (t, amp, decay, period) => (t < 0 || t > 4) ? 0 : amp * Math.exp(-decay * t) * Math.sin(2 * Math.PI * t / period);
+  function kick(sec){ S.busyUntil = Math.max(S.busyUntil, now() + sec); if (!S.running) { S.running = true; S.last = now(); requestAnimationFrame(frame); } }
+  function swing(amp){ S.swingAt = now(); S.swingAmp = amp; kick(3.4); }
+
+  function frame(){
+    const t = now(), dt = Math.min(t - S.last, 0.05); S.last = t;
+    // turn: a spring toward the target, with a little overshoot
+    if (reduced) { S.yaw = S.yawT; S.yawV = 0; }
+    else { const acc = 46 * (S.yawT - S.yaw) - 8.5 * S.yawV; S.yawV += acc * dt; S.yaw += S.yawV * dt; }
+    const ts = t - S.swingAt;
+    const life = alive && !reduced;
+    const blinkPhase = (t % 5.2) / 0.2, sniffT = (t % 7) - 5.4;
+    const u = {
+      uYaw: S.yaw,
+      uSwing: reduced ? 0 : damped(ts, S.swingAmp, 1.55, 0.86),
+      uSignSwing: reduced ? 0 : damped(ts - 0.13, -S.swingAmp * 1.5, 1.25, 0.86),
+      uSignYaw: reduced ? 0 : Math.max(-0.9, Math.min(0.9, -S.yawV * 0.16)),      // the sign lags behind a turn
+      uBlink: life && blinkPhase < 1 ? Math.sin(Math.PI * blinkPhase) : 0,
+      uKick: reduced ? 0 : damped(t - S.kickAt, 0.55, 2.2, 0.46),
+      uTail: reduced ? 0 : damped(ts - 0.1, S.swingAmp * 1.3, 1.3, 0.86) + (life ? 0.07 * Math.sin(t * 1.05) : 0),
+      uSniff: life && sniffT > 0 && sniffT < 1.2 ? Math.sin(sniffT * 15.7) * (1 - sniffT / 1.2) : 0,
+      uFail: pose === 'failed' ? 1 : 0,
+      uBreathe: life ? 0.012 * Math.sin(t * 1.5) : 0
+    };
+    if (gl && prog) {
+      gl.uniform2f(U.uRes, canvas.width, canvas.height);
+      for (const k in u) gl.uniform1f(U[k], u[k]);
+      gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+    if (!S.drag) yawInput.value = S.yawT;
+    const visible = !stage.classList.contains('hidden');
+    const moving = t < S.busyUntil || Math.abs(S.yawT - S.yaw) > 0.002 || Math.abs(S.yawV) > 0.01 || S.drag;
+    if (visible && (moving || life)) requestAnimationFrame(frame); else S.running = false;
+  }
+  function turnTo(a, sec){ S.yawT = Math.max(-1.45, Math.min(1.45, a)); kick(sec || 1.5); }
+
+  // Same API as app-assets/snuffler-hanging.html, plus setIdle and turn.
+  window.hangabout = {
+    show(p, label){
+      clear(); pose = p === 'failed' ? 'failed' : 'needs';
+      icon(true);
+      stage.className = reduced ? 'reduced' : '';
+      hit.setAttribute('aria-label', label || (pose === 'failed' ? 'Snuffler hit a problem. Show details' : 'Snuffler needs you. Show details'));
+      if (reduced) { S.yaw = S.yawT = REST; kick(0.2); post({type:'shown'}); return; }
+      S.yaw = -0.9; S.yawV = 0; S.yawT = REST;            // he spins in as he drops
+      stage.classList.add('dropping'); kick(4);
+      later(750, () => { stage.classList.remove('dropping'); swing(0.24); post({type:'shown'}); });
+    },
+    nudge(level){
+      if (reduced || stage.classList.contains('hidden')) return;
+      if (level >= 2) { S.kickAt = now(); swing(0.38); } else swing(0.24);
+    },
+    climb(){
+      clear();
+      if (reduced) { stage.className = 'hidden'; icon(false); post({type:'climbed'}); return; }
+      stage.classList.remove('dropping'); stage.classList.add('climbing'); turnTo(0, 1);
+      later(650, () => { stage.className = 'hidden'; icon(false); post({type:'climbed'}); });
+    },
+    hide(){ clear(); stage.className = 'hidden'; icon(false); },
+    setReducedMotion(on){ reduced = !!on; stage.classList.toggle('reduced', reduced); kick(0.3); },
+    setIdle(on){ alive = !!on; kick(0.3); },
+    turn(angle){ turnTo(angle); }
+  };
+
+  // drag to turn; a plain click still counts as a click
+  hit.addEventListener('pointerdown', e => { S.drag = { x: e.clientX, yaw: S.yawT, moved: false }; hit.setPointerCapture(e.pointerId); kick(1); });
+  hit.addEventListener('pointermove', e => { if (!S.drag) return; const dx = e.clientX - S.drag.x; if (Math.abs(dx) > 4) S.drag.moved = true; if (S.drag.moved) turnTo(S.drag.yaw + dx / 70); });
+  hit.addEventListener('pointerup', () => { const d = S.drag; S.drag = null; if (d && !d.moved) { post({type:'clicked'}); hangabout.nudge(1); } });
+  hit.addEventListener('pointercancel', () => { S.drag = null; });
+
+  const acts = { needs: () => hangabout.show('needs'), failed: () => hangabout.show('failed'), n1: () => hangabout.nudge(1), n2: () => hangabout.nudge(2), climb: () => hangabout.climb() };
+  document.querySelectorAll('[data-do]').forEach(b => b.addEventListener('click', () => acts[b.dataset.do]()));
+  yawInput.addEventListener('input', e => turnTo(parseFloat(e.target.value)));
+  document.getElementById('look').addEventListener('click', () => { turnTo(-1.2, 4); later(1100, () => turnTo(1.3, 3)); later(2300, () => turnTo(0, 2)); later(3200, () => turnTo(REST, 2)); });
+  document.getElementById('size').addEventListener('change', e => { document.documentElement.style.setProperty('--z', e.target.value); resize(); });
+  document.getElementById('alive').addEventListener('change', e => hangabout.setIdle(e.target.checked));
+  document.getElementById('dark').addEventListener('change', e => desk.classList.toggle('dark', e.target.checked));
+  document.getElementById('reduced').addEventListener('change', e => hangabout.setReducedMotion(e.target.checked));
+  window.addEventListener('resize', resize);
+  resize();
+  post({type:'ready'});
+  setTimeout(() => hangabout.show('needs'), 400);
+})();
+</script>
+</body>
+</html>

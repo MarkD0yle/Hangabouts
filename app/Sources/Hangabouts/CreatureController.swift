@@ -15,6 +15,18 @@ final class CreatureController: NSObject {
     private var pendingCalls: [String] = []
     private(set) var isShowing = false
 
+    /// Called with `true` when Snuffler drops and `false` once he has climbed back.
+    /// The app delegate swaps the menu bar icon between his head and his burrow.
+    var onHangingChanged: ((Bool) -> Void)?
+
+    /// Width of his hanging arm on the page at 100%, in points. The burrow icon draws the top of it.
+    static let armWidthAtFullSize: CGFloat = 13.4
+
+    /// Blink, sniff, breathing and a tail sway while he hangs. Off by default:
+    /// the spec says he hangs completely still. Saved between launches.
+    private(set) var idleLife: Bool
+    static let idleLifeKey = "creatureIdleLife"
+
     /// Size of Snuffler relative to the 180×225 design. Saved between launches.
     private(set) var scale: CGFloat
     static let scaleKey = "creatureScale"
@@ -29,6 +41,7 @@ final class CreatureController: NSObject {
         self.statusItem = statusItem
         let saved = UserDefaults.standard.double(forKey: CreatureController.scaleKey)
         scale = saved > 0 ? CGFloat(saved) : CreatureController.defaultScale
+        idleLife = UserDefaults.standard.bool(forKey: CreatureController.idleLifeKey)
         panel = CreaturePanel()
 
         let contentController = WKUserContentController()
@@ -48,6 +61,7 @@ final class CreatureController: NSObject {
         webView.autoresizingMask = [.width, .height]
         panel.contentView = webView
         applyScale()
+        if idleLife { call("hangabout.setIdle(true)") }
 
         loadPage()
 
@@ -70,7 +84,15 @@ final class CreatureController: NSObject {
         positionPanel()
         panel.orderFrontRegardless() // never makeKey: focus must stay where it is
         isShowing = true
+        onHangingChanged?(true)
         call("hangabout.show('needs')")
+    }
+
+    /// Debug › Idle life.
+    func setIdleLife(_ on: Bool) {
+        idleLife = on
+        UserDefaults.standard.set(on, forKey: CreatureController.idleLifeKey)
+        call("hangabout.setIdle(\(on))")
     }
 
     /// Debug › Size. Resizes Snuffler, and keeps him under the icon if he's showing.
@@ -89,10 +111,12 @@ final class CreatureController: NSObject {
 
     // MARK: - Size
 
-    /// The page is laid out at 180×225 CSS px; page zoom draws it smaller without touching the design.
+    /// The page is laid out at 270×230 CSS px; page zoom draws it smaller without touching the design.
     private func applyScale() {
         webView.pageZoom = scale
         panel.setContentSize(scaledSize)
+        // Tell the page, so it doesn't draw more pixels than are shown.
+        call("hangabout.setZoom(\(Double(scale)))")
     }
 
     // MARK: - Page
@@ -137,7 +161,10 @@ final class CreatureController: NSObject {
         case "climbed":
             panel.orderOut(nil) // remove the window so nothing invisible blocks clicks
             isShowing = false
+            onHangingChanged?(false)
             log("climbed")
+        case "error":
+            log("page error: \(body["message"] as? String ?? "unknown")")
         default:
             log("unknown message: \(type)")
         }
@@ -152,7 +179,8 @@ final class CreatureController: NSObject {
             let iconFrame = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
             let onAScreen = NSScreen.screens.contains { $0.frame.intersects(iconFrame) }
             if onAScreen {
-                // Hands at the top centre of the page meet the bottom of the menu bar.
+                // His hand is at the top centre of the page. It meets the bottom of the menu bar,
+                // where the burrow icon's arm ends.
                 let menuBarBottom = buttonWindow.frame.minY
                 panel.setFrameOrigin(NSPoint(x: iconFrame.midX - size.width / 2, y: menuBarBottom - size.height))
                 return

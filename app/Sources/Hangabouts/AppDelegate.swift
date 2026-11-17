@@ -3,6 +3,7 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
     // Must live as long as the app, or the icon disappears at once.
     private var statusItem: NSStatusItem!
+    private var creature: CreatureController!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -19,6 +20,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         statusItem.menu = buildMenu()
+        creature = CreatureController(statusItem: statusItem)
+    }
+
+    // MARK: - Debug actions (M2)
+
+    @objc private func simulateNeedsYou() {
+        creature.simulateNeedsYou()
+    }
+
+    @objc private func simulateNeedsYouDelayed() {
+        // Gives the human time to click into another app and start typing (focus test M2-5).
+        perform(#selector(simulateNeedsYou), with: nil, afterDelay: 5)
+    }
+
+    @objc private func clearAll() {
+        creature.clearAll()
     }
 
     // M1: full structure, later items disabled.
@@ -51,10 +68,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let debug = NSMenuItem(title: "Debug", action: nil, keyEquivalent: "")
         let debugMenu = NSMenu()
         debugMenu.autoenablesItems = false
-        debugMenu.addItem(disabled("Simulate Needs you"))      // M2
+        debugMenu.addItem(action("Simulate Needs you", #selector(simulateNeedsYou)))
+        debugMenu.addItem(action("Simulate Needs you in 5 s", #selector(simulateNeedsYouDelayed))) // debug-only, focus test
         debugMenu.addItem(disabled("Simulate Failed"))         // M5
         debugMenu.addItem(disabled("Simulate Done"))           // M5
-        debugMenu.addItem(disabled("Clear all"))               // M2
+        debugMenu.addItem(action("Clear all", #selector(clearAll)))
         debugMenu.addItem(disabled("Short escalation timers")) // M5
         debugMenu.addItem(disabled("Open event log"))          // M3
         debug.submenu = debugMenu
@@ -65,6 +83,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         quit.target = NSApp
         menu.addItem(quit)
         return menu
+    }
+
+    private func action(_ title: String, _ selector: Selector) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: selector, keyEquivalent: "")
+        item.target = self
+        item.isEnabled = true
+        return item
     }
 
     private func disabled(_ title: String) -> NSMenuItem {

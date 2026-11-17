@@ -1,0 +1,14 @@
+{
+  "name": "agent-bestiary",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Creatures that show what your AI agents are doing. Spec 001 test harness.",
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "listen": "node harness/listener.mjs",
+    "mark": "node harness/mark.mjs",
+    "analyze": "node harness/analyze.mjs",
+    "reset": "node -e \"require('fs').rmSync('logs',{recursive:true,force:true});console.log('logs cleared')\""
+  }
+}

@@ -1,4 +1,8 @@
 logs/
 node_modules/
 .DS_Store
-sandbox/.claude/settings.local.json
+# "Always allow" rules. Claude Code writes these at the repo root, even from a sandbox.
+**/.claude/settings.local.json
+
+app/.build/
+app/build/

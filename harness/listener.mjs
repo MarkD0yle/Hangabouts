@@ -85,10 +85,13 @@ const server = http.createServer(async (req, res) => {
   // exactly as it would without the hook (important for PermissionRequest).
   res.writeHead(200, { "content-type": "application/json" }).end("{}");
 
+  // Read the scenario before awaiting frontApp(), so a mark that arrives
+  // meanwhile can't re-tag this event. analyze.mjs sorts by receivedAtMs.
+  const scenario = currentScenario();
   const app = await frontApp();
   const line = {
     type: "event",
-    scenario: currentScenario(),
+    scenario,
     event,
     receivedAt: new Date(receivedAtMs).toISOString(),
     receivedAtMs,

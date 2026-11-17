@@ -36,6 +36,13 @@ If any check fails, **stop**. Tell the human what's missing and how to fix it. D
 - **SwiftUI `App` vs AppKit.** A `MenuBarExtra` is tempting, but the creature panel needs AppKit control (non-activating `NSPanel`, exact placement under the icon). Use an `NSApplicationDelegate` with an `NSStatusItem`. SwiftUI is fine *inside* views, such as the card in M4.
 - **Template image.** The menu bar icon is coloured. Set `isTemplate = false`, and size it to 18×18 pt.
 
+### Traps for later milestones
+
+- **M2: clicks on the creature.** A web view in a non-activating panel may ignore the first click. You may need a `WKWebView` subclass that returns `true` from `acceptsFirstMouse(for:)`.
+- **M2: register the `hangabout` message handler before loading the page.** The page posts `ready` as soon as it loads.
+- **M4: Escape on the card** needs the card's window to become key. That's fine after a click. Never make anything key when Snuffler first drops.
+- **M5: the ⌃⌥H global shortcut.** `NSEvent` global monitors need Accessibility permission. Carbon's `RegisterEventHotKey` doesn't. Prefer it.
+
 ## 4. Build M1 only: Skeleton
 
 **Goal:** the app launches, shows Snuffler's icon in the menu bar, and has a working menu. Nothing else.

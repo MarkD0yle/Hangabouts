@@ -51,8 +51,8 @@ cd sandbox && claude
 # Before each scenario
 npm run mark -- A2
 
-# When you're done
-npm run analyze > results/run-$(date +%F).md
+# When you're done: paste the output into a copy of results/TEMPLATE.md
+npm run analyze
 ```
 
 Full steps, scenarios and pass criteria are in [`specs/001-hook-reliability.md`](specs/001-hook-reliability.md).

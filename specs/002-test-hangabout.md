@@ -206,14 +206,23 @@ Run with `sandbox-002`. Use "yes, once" on every permission prompt, never "alway
 | T10 | Debug › Simulate Failed | "!" sign, droopy eye, sweat drop |
 | T11 | Prompt finishes normally with no permission needed | No hanging. Blue dot badge on icon, cleared when you open the menu |
 | T12 | Full-screen app in front, trigger T3 | Snuffler shows over the full-screen app, or logged as a known issue |
-| T13 | Quit the app, use Claude Code in the sandbox | Claude Code works normally, no errors shown |
+| T13 | Quit the app, use Claude Code in the sandbox | Claude Code works normally. Non-blocking hook errors are expected; nothing blocks or hangs |
 | T14 | Typing in another app when Snuffler drops | Typing isn't interrupted; focus doesn't move |
+
+## Open questions (decide before M3)
+
+From a review against the Claude Code hooks docs:
+
+- **`idle_prompt` fires about 60 s after *every* finished turn** if you haven't typed and seem away. Mapping it to Needs you means Snuffler drops after every task you walk away from. That clashes with "Done: finished work waits for you." Options: map it to Done, or drop it.
+- **Nothing clears Failed.** Suggest: the next `UserPromptSubmit` or `SessionStart` for that session.
+- **`Stop` doesn't fire on Esc.** If you interrupt at a permission prompt, Needs you stays until your next prompt. Suggest: clear on `UserPromptSubmit` (already in the list), and check `PostToolUseFailure` with `is_interrupt`. Add an interrupt scenario to Spec 001 if this matters.
+- **`StopFailure` payload:** the reason is in `error` (e.g. `rate_limit`), with optional `error_details`.
 
 ## The experiment this enables
 
 Once T1–T14 pass, run the real test from the product plan:
 
-- **Week 1, without the app:** note how long Claude Code sessions wait for you. The Spec 001 listener can log this: time from `PermissionRequest` to the next `PostToolUse`.
+- **Week 1, without the app:** note how long Claude Code sessions wait for you. The Spec 001 listener can log this: time from `PermissionRequest` to the next `PostToolUse`. Two gaps: the sandbox hooks only cover the sandbox, so real work needs the hooks in your user settings; and `analyze.mjs` doesn't yet calculate this wait time.
 - **Week 2, with the app:** the same, from the app's event log.
 - **Pass:** median wait time drops by half or more.
 - **Also note:** any moment Snuffler annoyed you, and any moment you missed him.

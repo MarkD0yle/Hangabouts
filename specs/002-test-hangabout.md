@@ -75,8 +75,10 @@ sandbox-002/.claude/settings.json   Already created. Hooks post to port 7788
 | `hangabout.setReducedMotion(true or false)` | Turns all motion off. |
 
 - It sends messages to Swift through `window.webkit.messageHandlers.hangabout`: `{type: "ready"}`, `"shown"`, `"clicked"` and `"climbed"`.
-- The page is exactly 180×225 px with a transparent background. Snuffler's hands are at the top centre, about (90, 10).
-- `app-assets/menubar-icon*.png` is a placeholder menu bar icon. **Known problem:** at 18 pt it reads as a yellow blob. That's acceptable for the test.
+- The page is exactly 270×262 px with a transparent background. Snuffler hangs by one hand from a swing: two ropes from the top centre, (135, 0), down to a wooden bar. The page is wider than he is, so he can swing and turn.
+- **Redesigned after M2:** Snuffler is now a 3D model drawn live with WebGL (no libraries). Extra calls: `hangabout.turn(angle)`, `hangabout.setIdle(true or false)`, `hangabout.setZoom(zoom)`. The page also sends `{type: "error", message}` if WebGL fails. Design pages are in `design/`.
+- **Menu bar icon:** drawn in code (`MenuBarIcon.swift`). It's his burrow, the hole he drops out of. Resting, his eyes and nose peek out. While he hangs, the hole is empty and the swing's rope runs from it down to the panel. `app-assets/menubar-icon*.png` is no longer used.
+- **Risk:** idle life (blink, sniff, breathing) breaks "then completely still". It's off by default, behind Debug › Idle life.
 
 ## Behaviour
 
@@ -122,7 +124,7 @@ The app keeps state **per Claude Code session** (key: `session_id`). Ignore even
 ### Placement
 
 - The panel is a borderless, non-activating `NSPanel`, transparent, no shadow.
-- **Size:** the creature page is designed at 180×225 px. It is drawn at **35% by default (63×79 pt)** using the web view's page zoom. Debug › Size offers 25%, 35%, 50%, 70% and 100%, saved between launches. Changed after M2 testing: full size, then 50%, felt too big.
+- **Size:** the creature page is designed at 270×262 px. It is drawn at **35% by default (95×92 pt)** using the web view's page zoom. Debug › Size offers 25%, 35%, 50%, 70% and 100%, saved between launches. Changed after M2 testing: full size, then 50%, felt too big.
 - Window level: above normal windows, on all Spaces, allowed over full-screen apps (`.statusBar` level, `.canJoinAllSpaces`, `.fullScreenAuxiliary`).
 - Position: horizontally centred on the menu bar icon (from the status item button's window frame). Top edge flush with the bottom of the menu bar, on the same screen as the icon.
 - Hanging must not steal focus from the app you're typing in.

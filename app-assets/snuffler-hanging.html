@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hangabout: Snuffler</title>
+<style>
+body{margin:0}
+a{color:#2F5BD3}a:hover{color:#1E3F9E}
+.sn-body{fill:#D9A441;stroke:#5A3A1C;stroke-width:3;stroke-linejoin:round}
+.sn-belly{fill:#EFD48F}
+.sn-trunk-out{fill:none;stroke:#5A3A1C;stroke-width:20;stroke-linecap:round}
+.sn-trunk{fill:none;stroke:#C68A2E;stroke-width:14;stroke-linecap:round}
+.sn-arm-out{fill:none;stroke:#5A3A1C;stroke-width:17;stroke-linecap:round}
+.sn-arm{fill:none;stroke:#D9A441;stroke-width:11;stroke-linecap:round}
+.sn-ink{fill:none;stroke:#5A3A1C;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.sn-eye{fill:#FFFDF6;stroke:#5A3A1C;stroke-width:2.5}
+.sn-pupil{fill:#231A12}
+.sn-glint{fill:#FFFFFF}
+.sn-dark{fill:#3A2414}
+.sn-mono{fill:none;stroke:#2B2118;stroke-width:2.5}
+.sn-chain{fill:none;stroke:#2B2118;stroke-width:1.6;stroke-dasharray:2 3;stroke-linecap:round}
+.sn-bag{fill:#6F8F62;stroke:#3E4F37;stroke-width:2.5}
+.sn-bagline{fill:none;stroke:#3E4F37;stroke-width:2}
+.sn-paper{fill:#FFFFFF;stroke:#8A8577;stroke-width:1.5;stroke-linejoin:round}
+.sn-lines{fill:none;stroke:#B9B4A6;stroke-width:2;stroke-linecap:round}
+.sn-shadow{fill:#1F2420;opacity:.09}
+.sn-hole{fill:#7A5A36}
+.sn-dirt{fill:#9C7A4E}
+.sn-sign{fill:#FFFFFF;stroke:#5A3A1C;stroke-width:2.5}
+.sn-string{fill:none;stroke:#5A3A1C;stroke-width:1.8}
+.sn-signtext{fill:#2F5BD3;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:26px;text-anchor:middle}
+.sn-blue{fill:#2F5BD3}
+.sn-check{fill:none;stroke:#FFFFFF;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.sn-lid{fill:#D9A441;stroke:#5A3A1C;stroke-width:2.5;stroke-linejoin:round}
+.sn-sweat{fill:#9DBCEB;stroke:#5A3A1C;stroke-width:1.5}
+.ic-line{fill:none;stroke:#1F2420;stroke-width:2;stroke-linecap:round}.ic-thin{stroke-width:1.6}.ic-fill{fill:#1F2420}
+.sn-bar{fill:#F4F5F1;stroke:#C9CEC4;stroke-width:1}
+
+
+html,body{margin:0;padding:0;background:transparent;overflow:hidden;width:180px;height:225px}
+#stage{position:absolute;inset:0}
+#stage.hidden{visibility:hidden}
+#hit{all:unset;display:block;width:180px;height:225px;cursor:pointer}
+#hit:focus-visible{outline:2px solid #2F5BD3;outline-offset:-2px;border-radius:12px}
+.failed-only{display:none}
+.failed .failed-only{display:inline}
+.failed .sn-signtext{fill:#B3261E}
+.sn-swing{transform-origin:100px 10px}
+.sn-kick{transform-origin:100px 172px}
+@keyframes hb-drop{0%{transform:translateY(-240px)}70%{transform:translateY(8px)}100%{transform:translateY(0)}}
+@keyframes hb-climb{0%{transform:translateY(0)}100%{transform:translateY(-240px)}}
+@keyframes hb-swing{0%{transform:rotate(0)}15%{transform:rotate(15deg)}33%{transform:rotate(-10deg)}50%{transform:rotate(6deg)}67%{transform:rotate(-3deg)}84%{transform:rotate(1deg)}100%{transform:rotate(0)}}
+@keyframes hb-swing-big{0%{transform:rotate(0)}12%{transform:rotate(22deg)}28%{transform:rotate(-16deg)}44%{transform:rotate(10deg)}60%{transform:rotate(-5deg)}78%{transform:rotate(2deg)}100%{transform:rotate(0)}}
+@keyframes hb-kick{0%,100%{transform:rotate(0)}20%{transform:rotate(-9deg)}40%{transform:rotate(7deg)}60%{transform:rotate(-4deg)}80%{transform:rotate(2deg)}}
+#stage.dropping{animation:hb-drop .7s cubic-bezier(.3,1.2,.5,1) both}
+#stage.climbing{animation:hb-climb .6s ease-in both}
+#stage.swing1 .sn-swing{animation:hb-swing 2.2s ease-in-out 1}
+#stage.swing2 .sn-swing{animation:hb-swing-big 2.6s ease-in-out 1}
+#stage.swing2 .sn-kick{animation:hb-kick 1.4s ease-in-out 1}
+#stage.reduced, #stage.reduced *{animation:none !important}
+</style>
+</head>
+<body>
+<div id="stage" class="hidden">
+<button id="hit" type="button" aria-label="Snuffler needs you. Show details">
+<svg viewBox="0 0 200 250" width="180" height="225" aria-hidden="true" id="creature" style="display: block; overflow: visible">
+
+<g class="sn-swing">
+<path class="sn-arm-out" d="M80 86 C77 62 82 36 88 12"></path>
+<path class="sn-arm" d="M80 86 C77 62 82 36 88 12"></path>
+<path class="sn-arm-out" d="M120 84 C123 60 118 36 112 12"></path>
+<path class="sn-arm" d="M120 84 C123 60 118 36 112 12"></path>
+<circle class="sn-body" cx="88" cy="11" r="8"></circle>
+<circle class="sn-body" cx="112" cy="11" r="8"></circle>
+<g class="sn-kick">
+<rect class="sn-body" x="81" y="168" width="13" height="28" rx="6" transform="rotate(6 87 170)"></rect>
+<rect class="sn-body" x="106" y="168" width="13" height="28" rx="6" transform="rotate(-6 112 170)"></rect>
+<ellipse class="sn-body" cx="82" cy="199" rx="6" ry="9"></ellipse>
+<ellipse class="sn-body" cx="117" cy="199" rx="6" ry="9"></ellipse>
+</g>
+<path class="sn-body" d="M58 152 C44 120 56 80 92 72 C128 64 152 92 150 126 C148 158 126 178 100 178 C80 178 66 168 58 152 Z"></path>
+<path class="sn-belly" d="M78 152 C78 134 122 132 124 152 C124 168 80 170 78 152 Z"></path>
+<path class="sn-ink" d="M66 112 q4 -3 8 0 M138 108 q4 -3 8 0 M70 160 q4 -3 8 0 M132 158 q4 -3 8 0"></path>
+<path class="sn-ink" d="M86 74 q-3 -10 3 -15 M97 71 q0 -12 7 -16 M108 72 q4 -9 11 -9"></path>
+<path class="sn-ink" d="M122 80 C104 108 86 126 70 136"></path>
+<rect class="sn-paper" x="50" y="122" width="11" height="15" transform="rotate(-14 55 130)"></rect>
+<rect class="sn-paper" x="61" y="120" width="11" height="16" transform="rotate(9 66 128)"></rect>
+<rect class="sn-bag" x="46" y="132" width="32" height="25" rx="6"></rect>
+<path class="sn-bagline" d="M46 141 H78"></path>
+<g class="sn-eyes">
+<circle class="sn-eye" cx="86" cy="100" r="12"></circle>
+<circle class="sn-pupil" cx="87" cy="100" r="5"></circle>
+<circle class="sn-glint" cx="89" cy="98" r="1.6"></circle>
+<circle class="sn-eye" cx="113" cy="97" r="6"></circle>
+<circle class="sn-pupil" cx="113.5" cy="97.5" r="2.6"></circle>
+</g>
+<path class="sn-ink" d="M106 94 q7 -6 14 0"></path>
+<circle class="sn-mono" cx="86" cy="100" r="16"></circle>
+<path class="sn-chain" d="M99 110 C106 126 114 136 122 148"></path>
+<path class="sn-string" d="M150 112 L152 196"></path>
+<rect class="sn-sign" x="128" y="194" width="48" height="38" rx="7"></rect>
+<text class="sn-signtext" id="signtext" x="152" y="223">?</text>
+<g class="failed-only">
+<path class="sn-lid" d="M73 99 C75 85 97 85 99 99 C92 94 80 94 73 99 Z"></path>
+<path class="sn-sweat" d="M140 70 q7 10 0 15 q-7 -5 0 -15 Z"></path>
+</g>
+<g class="sn-snout">
+<path class="sn-trunk-out" d="M100 110 C116 118 138 122 148 110 C154 102 148 94 142 98"></path>
+<path class="sn-trunk" d="M100 110 C116 118 138 122 148 110 C154 102 148 94 142 98"></path>
+<circle class="sn-dark" cx="139" cy="99" r="2.2"></circle>
+<circle class="sn-dark" cx="145" cy="99" r="2.2"></circle>
+</g>
+</g>
+</svg>
+</button>
+</div>
+<script>
+(function(){
+  const stage = document.getElementById('stage');
+  const sign = document.getElementById('signtext');
+  const hit = document.getElementById('hit');
+  let reduced = false, timers = [];
+  const post = (m) => { try { window.webkit.messageHandlers.hangabout.postMessage(m); } catch (e) { console.log('hangabout', m); } };
+  const clear = () => { timers.forEach(clearTimeout); timers = []; };
+  const later = (ms, fn) => timers.push(setTimeout(fn, ms));
+  function restart(cls, ms){ stage.classList.remove(cls); void stage.offsetWidth; stage.classList.add(cls); later(ms, () => stage.classList.remove(cls)); }
+
+  window.hangabout = {
+    // pose: "needs" (question sign) or "failed" (sheepish, "!" sign)
+    show(pose, label){
+      clear();
+      stage.className = reduced ? 'reduced' : '';
+      if (pose === 'failed') { stage.classList.add('failed'); sign.textContent = '!'; }
+      else { sign.textContent = '?'; }
+      hit.setAttribute('aria-label', label || (pose === 'failed' ? 'Snuffler hit a problem. Show details' : 'Snuffler needs you. Show details'));
+      if (reduced) { post({type:'shown'}); return; }
+      stage.classList.add('dropping');
+      later(700, () => { stage.classList.remove('dropping'); restart('swing1', 2200); post({type:'shown'}); });
+    },
+    // level 1: one settling swing. level 2: bigger swing plus a leg kick.
+    nudge(level){
+      if (reduced) return;
+      if (level >= 2) restart('swing2', 2600); else restart('swing1', 2200);
+    },
+    climb(){
+      clear();
+      if (reduced) { stage.className = 'hidden'; post({type:'climbed'}); return; }
+      stage.classList.add('climbing');
+      later(600, () => { stage.className = 'hidden'; post({type:'climbed'}); });
+    },
+    hide(){ clear(); stage.className = 'hidden'; },
+    setReducedMotion(on){ reduced = !!on; if (on) stage.classList.add('reduced'); else stage.classList.remove('reduced'); }
+  };
+  hit.addEventListener('click', () => post({type:'clicked'}));
+  post({type:'ready'});
+})();
+</script>
+</body>
+</html>

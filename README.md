@@ -1,4 +1,6 @@
-# Agent Bestiary
+# Hangabouts
+
+*(Working name. Repo codename: agent-bestiary.)*
 
 Odd little creatures that show what your AI agents are doing.
 
@@ -19,7 +21,7 @@ The rule: motion matches urgency. Only "needs you" and "failed" are allowed to p
 |---|---|---|
 | 0 | Character design: Snuffler, 5 states | Done (design canvas) |
 | 1 | **Spec 001:** can Claude Code hooks drive the creatures reliably? | **Ready to run** |
-| 2 | macOS menu bar app with one creature | Blocked on Spec 001 |
+| 2 | **Spec 002:** test Hangabout, a macOS menu bar app with Snuffler | **Ready to build** (listens to both candidate events) |
 | 3 | Answer prompts from the creature's card | Later |
 
 ## Repo layout
@@ -27,7 +29,10 @@ The rule: motion matches urgency. Only "needs you" and "failed" are allowed to p
 ```
 specs/      Test specs. Start with 001-hook-reliability.md
 harness/    Local listener, scenario tagger and analyser (Node 18+, no packages)
-sandbox/    Throwaway Claude Code project whose hooks post to the listener
+sandbox/    Spec 001: throwaway Claude Code project, hooks post to the listener on :7777
+sandbox-002/ Spec 002: throwaway Claude Code project, hooks post to the app on :7788
+app-assets/ Snuffler creature (HTML/SVG/CSS with a JS API) and menu bar icons
+app/        Spec 002: the macOS test app (to be built)
 results/    Results from each test run
 design/     Character notes and links to design files
 ```

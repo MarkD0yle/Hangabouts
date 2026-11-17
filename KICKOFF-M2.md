@@ -47,7 +47,7 @@ app/Sources/Hangabouts/
 ### `CreaturePanel`
 
 - `NSPanel` with style mask `[.borderless, .nonactivatingPanel]`.
-- Size: 180×225 pt. The page is built for exactly that.
+- Size: the page is built for 180×225 pt. Since M2 testing it's drawn at 50% by default with `pageZoom`, and Debug › Size switches between 50%, 70% and 100%.
 - `isOpaque = false`, `backgroundColor = .clear`, `hasShadow = false`.
 - `level = .statusBar`.
 - `collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]`.

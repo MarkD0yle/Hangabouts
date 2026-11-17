@@ -15,14 +15,26 @@ final class CreatureController: NSObject {
     private var pendingCalls: [String] = []
     private(set) var isShowing = false
 
+    /// Size of Snuffler relative to the 180×225 design. Saved between launches.
+    private(set) var scale: CGFloat
+    static let scaleKey = "creatureScale"
+    static let defaultScale: CGFloat = 0.5
+
+    private var scaledSize: NSSize {
+        NSSize(width: (CreaturePanel.baseSize.width * scale).rounded(),
+               height: (CreaturePanel.baseSize.height * scale).rounded())
+    }
+
     init(statusItem: NSStatusItem) {
         self.statusItem = statusItem
+        let saved = UserDefaults.standard.double(forKey: CreatureController.scaleKey)
+        scale = saved > 0 ? CGFloat(saved) : CreatureController.defaultScale
         panel = CreaturePanel()
 
         let contentController = WKUserContentController()
         let config = WKWebViewConfiguration()
         config.userContentController = contentController
-        webView = CreatureWebView(frame: NSRect(origin: .zero, size: CreaturePanel.size), configuration: config)
+        webView = CreatureWebView(frame: NSRect(origin: .zero, size: CreaturePanel.baseSize), configuration: config)
 
         super.init()
 
@@ -35,6 +47,7 @@ final class CreatureController: NSObject {
         webView.underPageBackgroundColor = .clear
         webView.autoresizingMask = [.width, .height]
         panel.contentView = webView
+        applyScale()
 
         loadPage()
 
@@ -60,10 +73,26 @@ final class CreatureController: NSObject {
         call("hangabout.show('needs')")
     }
 
+    /// Debug › Size. Resizes Snuffler, and keeps him under the icon if he's showing.
+    func setScale(_ newScale: CGFloat) {
+        scale = newScale
+        UserDefaults.standard.set(Double(newScale), forKey: CreatureController.scaleKey)
+        applyScale()
+        if isShowing { positionPanel() }
+    }
+
     /// Debug › Clear all. Climbs back up; the panel is ordered out when the page says "climbed".
     func clearAll() {
         guard isShowing else { return }
         call("hangabout.climb()")
+    }
+
+    // MARK: - Size
+
+    /// The page is laid out at 180×225 CSS px; page zoom draws it smaller without touching the design.
+    private func applyScale() {
+        webView.pageZoom = scale
+        panel.setContentSize(scaledSize)
     }
 
     // MARK: - Page
@@ -117,7 +146,7 @@ final class CreatureController: NSObject {
     // MARK: - Placement
 
     private func positionPanel() {
-        let size = CreaturePanel.size
+        let size = scaledSize
 
         if let button = statusItem?.button, let buttonWindow = button.window {
             let iconFrame = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))

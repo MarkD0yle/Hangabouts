@@ -121,7 +121,8 @@ The app keeps state **per Claude Code session** (key: `session_id`). Ignore even
 
 ### Placement
 
-- The panel is a borderless, non-activating `NSPanel`, 180×225 pt, transparent, no shadow.
+- The panel is a borderless, non-activating `NSPanel`, transparent, no shadow.
+- **Size:** the creature page is designed at 180×225 px. It is drawn at **50% by default (90×113 pt)** using the web view's page zoom. Debug › Size offers 50%, 70% and 100%, saved between launches. Changed after M2 testing: full size felt too big.
 - Window level: above normal windows, on all Spaces, allowed over full-screen apps (`.statusBar` level, `.canJoinAllSpaces`, `.fullScreenAuxiliary`).
 - Position: horizontally centred on the menu bar icon (from the status item button's window frame). Top edge flush with the bottom of the menu bar, on the same screen as the icon.
 - Hanging must not steal focus from the app you're typing in.

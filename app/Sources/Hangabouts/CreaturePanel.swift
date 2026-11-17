@@ -3,12 +3,13 @@ import AppKit
 /// Borderless, transparent, non-activating panel that Snuffler hangs in.
 /// It must never take focus from the app the user is typing in.
 final class CreaturePanel: NSPanel {
-    /// The creature page is built for exactly this size.
-    static let size = NSSize(width: 180, height: 225)
+    /// The creature page is built for exactly this size, at 100% zoom.
+    /// The controller scales it down with the web view's page zoom.
+    static let baseSize = NSSize(width: 180, height: 225)
 
     convenience init() {
         self.init(
-            contentRect: NSRect(origin: .zero, size: CreaturePanel.size),
+            contentRect: NSRect(origin: .zero, size: CreaturePanel.baseSize),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false

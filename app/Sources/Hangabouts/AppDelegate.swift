@@ -19,8 +19,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             button.setAccessibilityLabel("Hangabouts")
         }
 
-        statusItem.menu = buildMenu()
         creature = CreatureController(statusItem: statusItem)
+        statusItem.menu = buildMenu()
     }
 
     // MARK: - Debug actions (M2)
@@ -36,6 +36,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func clearAll() {
         creature.clearAll()
+    }
+
+    @objc private func setSize(_ sender: NSMenuItem) {
+        creature.setScale(CGFloat(sender.tag) / 100)
+        sender.menu?.items.forEach { $0.state = ($0 === sender) ? .on : .off }
+    }
+
+    /// Debug › Size submenu. Tags are percentages.
+    private func sizeMenuItem() -> NSMenuItem {
+        let item = NSMenuItem(title: "Size", action: nil, keyEquivalent: "")
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        let current = Int((creature.scale * 100).rounded())
+        for (title, percent) in [("Small (50%)", 50), ("Medium (70%)", 70), ("Full (100%)", 100)] {
+            let option = action(title, #selector(setSize(_:)))
+            option.tag = percent
+            option.state = (percent == current) ? .on : .off
+            menu.addItem(option)
+        }
+        item.submenu = menu
+        return item
     }
 
     // M1: full structure, later items disabled.
@@ -73,6 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         debugMenu.addItem(disabled("Simulate Failed"))         // M5
         debugMenu.addItem(disabled("Simulate Done"))           // M5
         debugMenu.addItem(action("Clear all", #selector(clearAll)))
+        debugMenu.addItem(sizeMenuItem())
         debugMenu.addItem(disabled("Short escalation timers")) // M5
         debugMenu.addItem(disabled("Open event log"))          // M3
         debug.submenu = debugMenu

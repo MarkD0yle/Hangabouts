@@ -5,8 +5,9 @@ import AppKit
 final class CreaturePanel: NSPanel {
     /// The creature page is built for exactly this size, at 100% zoom.
     /// The controller scales it down with the web view's page zoom.
-    /// It is wider than Snuffler so he has room to swing and to turn left and right.
-    static let baseSize = NSSize(width: 270, height: 230)
+    /// It is wider than Snuffler so he has room to swing and to turn left and right,
+    /// and tall enough for the swing he hangs from.
+    static let baseSize = NSSize(width: 270, height: 262)
 
     convenience init() {
         self.init(

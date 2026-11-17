@@ -53,9 +53,9 @@ enum MenuBarIcon {
         }
     }
 
-    /// Hanging: his empty burrow, with his arm running from the hole to the bottom of the menu bar,
-    /// where it meets the arm drawn by the creature panel. `armWidth` is in points.
-    static func hanging(barHeight: CGFloat, armWidth: CGFloat) -> NSImage {
+    /// Hanging: his empty burrow, with the swing's rope running from the hole to the bottom of the
+    /// menu bar, where it meets the ropes drawn by the creature panel. `ropeWidth` is in points.
+    static func hanging(barHeight: CGFloat, ropeWidth: CGFloat) -> NSImage {
         image(barHeight: barHeight) { bottom in
             soilEdge.setFill()
             NSBezierPath(ovalIn: oval(50, 56, 46, 27)).fill()
@@ -67,14 +67,14 @@ enum MenuBarIcon {
             NSBezierPath(ovalIn: circle(10, 26, 5)).fill()
             NSBezierPath(ovalIn: circle(89, 25, 4)).fill()
 
-            // The arm: a lit cylinder from inside the hole down to the bottom edge.
-            let width = armWidth * 100 / artSize
-            let arm = NSRect(x: 50 - width / 2, y: 57, width: width, height: bottom - 57)
+            // The rope: two strands side by side, from inside the hole down to the bottom edge.
+            let width = max(ropeWidth, 2) * 100 / artSize
+            let rope = NSRect(x: 50 - width / 2, y: 57, width: width, height: bottom - 57)
             let shading = NSGradient(colorsAndLocations:
-                (color(0xB07A22), 0), (color(0xF2C55E), 0.3), (color(0xE0A53A), 0.6), (color(0x9A6418), 1))
-            shading?.draw(in: arm, angle: 0)
+                (color(0x8A6A3A), 0), (color(0xD9BE8A), 0.22), (color(0x8A6A3A), 0.5), (color(0xD9BE8A), 0.72), (color(0x7A5C30), 1))
+            shading?.draw(in: rope, angle: 0)
 
-            // Front lip of the burrow, over the arm.
+            // Front lip of the burrow, over the rope.
             let lip = NSBezierPath()
             lip.move(to: NSPoint(x: 6, y: 56))
             lip.curve(to: NSPoint(x: 94, y: 56), controlPoint1: NSPoint(x: 6, y: 89), controlPoint2: NSPoint(x: 94, y: 89))

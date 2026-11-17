@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <title>Hangabout: Snuffler</title>
 <style>
-/* The page is exactly 270x230 px, transparent. Snuffler's hand is at the top centre (135, 0). 1 world unit = 79 px. */
-html,body{margin:0;padding:0;background:transparent;overflow:hidden;width:270px;height:230px}
+/* The page is exactly 270x262 px, transparent. The swing's ropes start at the top centre (135, 0). 1 world unit = 79 px. */
+html,body{margin:0;padding:0;background:transparent;overflow:hidden;width:270px;height:262px}
 #stage{position:absolute;inset:0}
 #stage.hidden{visibility:hidden}
-#hit{all:unset;display:block;width:270px;height:230px;cursor:pointer;touch-action:none}
+#hit{all:unset;display:block;width:270px;height:262px;cursor:pointer;touch-action:none}
 #hit:focus-visible{outline:2px solid #2F5BD3;outline-offset:-2px;border-radius:12px}
-#gl{display:block;width:270px;height:230px;pointer-events:none;filter:drop-shadow(1px 4px 4px rgba(20,12,4,.33))}
+#gl{display:block;width:270px;height:262px;pointer-events:none;filter:drop-shadow(1px 4px 4px rgba(20,12,4,.33))}
 @keyframes hb-drop{0%{transform:translateY(-110%)}62%{transform:translateY(5%)}80%{transform:translateY(-1.5%)}100%{transform:translateY(0)}}
 @keyframes hb-climb{0%{transform:translateY(0)}18%{transform:translateY(4%)}100%{transform:translateY(-110%)}}
 #stage.dropping{animation:hb-drop .75s cubic-bezier(.3,1.1,.5,1) both}
@@ -38,13 +38,16 @@ float sdCap(vec3 p, vec3 a, vec3 b, float r1, float r2){
 float sdBox(vec3 p, vec3 b, float r){ vec3 q = abs(p)-b; return length(max(q,0.)) + min(max(q.x,max(q.y,q.z)),0.) - r; }
 mat2 rot(float a){ float c = cos(a), s = sin(a); return mat2(c,-s,s,c); }
 
-// world -> Snuffler's own space. He swings about his hand (the origin) and turns about the vertical.
-vec3 toLocal(vec3 p){ p.xy = rot(uSwing)*p.xy; p.xz = rot(-uYaw)*p.xz; return p; }
+// The swing: two ropes from the top centre of the page down to a bar. Everything swings about the top.
+// The ropes meet at one point, so the swing twists with him when he turns.
+const float BAR = .46;                       // how far the bar hangs below the top
+// world -> Snuffler's own space. The bar is at y = 0; his hand grips it straight above his shoulder.
+vec3 toLocal(vec3 p){ p.xy = rot(uSwing)*p.xy; p.y += BAR; p.xz = rot(-uYaw)*p.xz; return p; }
 
-const vec3 HEAD = vec3(0., -.96, .06);
-const vec3 EYE_L = vec3(-.20, -.84, .345);   // big eye, with the monocle (his left, the near side when he faces right)
-const vec3 EYE_R = vec3( .19, -.86, .35);
-vec3 noseTip(){ return vec3(uSniff*.05, -1.55 + abs(uSniff)*.02, .84); }
+const vec3 HEAD = vec3(0., -.93, .06);
+const vec3 EYE_L = vec3(-.21, -.805, .36);   // big eye, with the monocle (his left, the near side when he faces right)
+const vec3 EYE_R = vec3( .20, -.825, .37);
+vec3 noseTip(){ return vec3(uSniff*.05, -1.49 + abs(uSniff)*.02, .79); }
 // the sign hangs from the nose and always turns to face the viewer
 vec3 toSign(vec3 p){
   vec3 q = p - (noseTip() + vec3(0., -.09, 0.));
@@ -53,64 +56,69 @@ vec3 toSign(vec3 p){
   return q;
 }
 
-// returns (distance, material). 1 fur, 3 nose, 4 eye, 5 gold, 6 bag, 7 strap, 8 card, 9 dark
+// returns (distance, material). 1 fur, 3 nose, 4 eye, 5 gold, 6 bag, 7 strap, 8 card, 9 dark, 10 rope, 11 wood
 vec2 U(vec2 a, vec2 b){ return a.x < b.x ? a : b; }
 vec2 map(vec3 pw){
   vec3 p = toLocal(pw);
   float br = 1. + uBreathe;
-  float d = sdEll(p - vec3(0., -1.52, -.03), vec3(.43*br, .53, .41*br));
-  d = smin(d, length(p - HEAD) - .36, .10);
-  // hanging arm (his right): shoulder, elbow, then up into the burrow
-  d = smin(d, sdCap(p, vec3(.40,-1.14,0.), vec3(.42,-.52,0.), .09, .08), .07);
-  d = smin(d, sdCap(p, vec3(.42,-.52,0.), vec3(.03,-.02,0.), .08, .085), .05);
-  d = smin(d, sdCap(p, vec3(.03,-.02,0.), vec3(0.,.4,0.), .085, .085), .04);
+  float d = sdEll(p - vec3(0., -1.50, -.02), vec3(.50*br, .54, .47*br));
+  d = smin(d, length(p - HEAD) - .40, .15);
+  // hanging arm (his right): straight up from the shoulder to a fist round the bar, bowed out a little past the ear
+  d = smin(d, sdCap(p, vec3(.48,-1.20,0.), vec3(.60,-.66,0.), .105, .095), .09);
+  d = smin(d, sdCap(p, vec3(.60,-.66,0.), vec3(.56,-.06,0.), .095, .09), .08);
+  d = smin(d, sdEll(p - vec3(.56,-.005,0.), vec3(.13,.125,.13)), .05);
   // resting arm (his left) and hand
-  d = smin(d, sdCap(p, vec3(-.40,-1.12,.04), vec3(-.47,-1.50,.13), .08, .07), .07);
-  d = smin(d, length(p - vec3(-.47,-1.54,.14)) - .09, .03);
+  d = smin(d, sdCap(p, vec3(-.46,-1.16,.04), vec3(-.55,-1.50,.13), .10, .09), .09);
+  d = smin(d, length(p - vec3(-.55,-1.54,.14)) - .105, .05);
   // ears (they droop when he's failed)
   vec3 pe = p; pe.x = abs(pe.x);
-  d = smin(d, sdEll(pe - vec3(.30 + .04*uFail, -.68 - .09*uFail, -.02), vec3(.14,.14,.075)), .04);
+  d = smin(d, sdEll(pe - vec3(.33 + .04*uFail, -.63 - .09*uFail, -.02), vec3(.15,.15,.10)), .06);
   // hair tuft
-  d = smin(d, sdCap(p, vec3(-.03,-.62,.06), vec3(-.07,-.49,.13), .032, .02), .03);
-  d = smin(d, sdCap(p, vec3(.04,-.62,.04), vec3(.07,-.50,.10), .032, .02), .03);
+  d = smin(d, sdCap(p, vec3(-.03,-.55,.06), vec3(-.07,-.42,.13), .036, .024), .04);
+  d = smin(d, sdCap(p, vec3(.04,-.55,.04), vec3(.07,-.43,.10), .036, .024), .04);
   // legs and feet
-  vec3 pl = p - vec3(0., -1.9, 0.); pl.yz = rot(uKick)*pl.yz; pl.x = abs(pl.x);
-  d = smin(d, sdCap(pl, vec3(.17,0.,0.), vec3(.19,-.21,.02), .095, .085), .07);
-  d = smin(d, sdEll(pl - vec3(.20,-.28,.10), vec3(.115,.078,.18)), .04);
+  vec3 pl = p - vec3(0., -1.93, 0.); pl.yz = rot(uKick)*pl.yz; pl.x = abs(pl.x);
+  d = smin(d, sdCap(pl, vec3(.20,0.,0.), vec3(.22,-.17,.02), .115, .105), .10);
+  d = smin(d, sdEll(pl - vec3(.23,-.25,.10), vec3(.135,.095,.19)), .07);
   // snout: three tapering segments, forward then down
-  vec3 s0 = vec3(0.,-1.05,.28), s1 = vec3(0.,-1.05,.62), s2 = vec3(uSniff*.02,-1.28,.83), s3 = noseTip();
-  d = smin(d, sdCap(p, s0, s1, .175, .15), .09);
-  d = smin(d, sdCap(p, s1, s2, .15, .12), .06);
-  d = smin(d, sdCap(p, s2, s3, .12, .098), .05);
+  vec3 s0 = vec3(0.,-1.03,.30), s1 = vec3(0.,-1.04,.60), s2 = vec3(uSniff*.02,-1.25,.79), s3 = noseTip();
+  d = smin(d, sdCap(p, s0, s1, .205, .175), .12);
+  d = smin(d, sdCap(p, s1, s2, .175, .145), .09);
+  d = smin(d, sdCap(p, s2, s3, .145, .118), .08);
   // tail: curls up behind him
   vec3 pt = p - vec3(0., -1.80, -.33); pt.yz = rot(uTail)*pt.yz;
-  float tl = sdCap(pt, vec3(0.), vec3(0.,.00,-.30), .08, .072);
-  tl = smin(tl, sdCap(pt, vec3(0.,.00,-.30), vec3(0.,.26,-.44), .072, .066), .03);
-  tl = smin(tl, sdCap(pt, vec3(0.,.26,-.44), vec3(0.,.43,-.28), .066, .06), .03);
-  tl = smin(tl, sdCap(pt, vec3(0.,.43,-.28), vec3(0.,.36,-.15), .06, .055), .03);
-  d = smin(d, tl, .05);
+  float tl = sdCap(pt, vec3(0.), vec3(0.,.00,-.34), .095, .088);
+  tl = smin(tl, sdCap(pt, vec3(0.,.00,-.34), vec3(0.,.26,-.48), .088, .08), .06);
+  tl = smin(tl, sdCap(pt, vec3(0.,.26,-.48), vec3(0.,.43,-.32), .08, .074), .06);
+  tl = smin(tl, sdCap(pt, vec3(0.,.43,-.32), vec3(0.,.36,-.19), .074, .07), .06);
+  d = smin(d, tl, .08);
   vec2 res = vec2(d, 1.);
 
-  res = U(res, vec2(length(p - (s3 + vec3(0.,-.035,.01))) - .105, 3.));
-  res = U(res, vec2(length(p - EYE_L) - .125, 4.));
-  res = U(res, vec2(length(p - EYE_R) - .082, 4.));
+  res = U(res, vec2(length(p - (s3 + vec3(0.,-.04,.01))) - .125, 3.));
+  res = U(res, vec2(length(p - EYE_L) - .135, 4.));
+  res = U(res, vec2(length(p - EYE_R) - .092, 4.));
   // monocle: a gold ring standing just off the big eye
   vec3 f = normalize(EYE_L - HEAD);
   vec3 qm = p - (EYE_L + f*.075); float h = dot(qm, f);
-  res = U(res, vec2(length(vec2(length(qm - f*h) - .15, h)) - .022, 5.));
+  res = U(res, vec2(length(vec2(length(qm - f*h) - .16, h)) - .024, 5.));
   // brows
   float tilt = .07*uFail;
-  res = U(res, vec2(sdCap(p, vec3(-.33,-.675+tilt,.26), vec3(-.10,-.655-tilt,.40), .022, .022), 9.));
-  res = U(res, vec2(sdCap(p, vec3(.12,-.745-tilt,.39), vec3(.27,-.755+tilt,.30), .018, .018), 9.));
+  res = U(res, vec2(sdCap(p, vec3(-.35,-.625+tilt,.27), vec3(-.11,-.605-tilt,.43), .024, .024), 9.));
+  res = U(res, vec2(sdCap(p, vec3(.13,-.70-tilt,.42), vec3(.29,-.71+tilt,.32), .02, .02), 9.));
   // satchel on his left hip, strap over the right shoulder
-  vec3 qs = p - vec3(0., -1.40, -.02); qs.xy = rot(-.78)*qs.xy; qs.z *= 1.1;
-  res = U(res, vec2((length(vec2(length(qs.xz) - .435, qs.y*.6)) - .02)*.85, 7.));
-  res = U(res, vec2(sdBox(p - vec3(-.50,-1.67,.0), vec3(.07,.115,.165), .045), 6.));
-  res = U(res, vec2(sdBox(p - vec3(-.52,-1.50,-.03), vec3(.008,.07,.09), .006), 8.));
+  vec3 qs = p - vec3(0., -1.40, -.02); qs.xy = rot(-.78)*qs.xy; qs.z *= 1.08;
+  res = U(res, vec2((length(vec2(length(qs.xz) - .50, qs.y*.6)) - .022)*.85, 7.));
+  res = U(res, vec2(sdBox(p - vec3(-.58,-1.68,.0), vec3(.045,.085,.135), .085), 6.));
+  res = U(res, vec2(sdBox(p - vec3(-.60,-1.50,-.03), vec3(.008,.07,.09), .006), 8.));
   // string and sign
   vec3 q = toSign(p);
   res = U(res, vec2(sdCap(q, vec3(0.), vec3(0.,-.2,0.), .012, .012), 9.));
-  res = U(res, vec2(sdBox(q - vec3(0.,-.47,0.), vec3(.25,.225,.018), .04), 8.));
+  res = U(res, vec2(sdBox(q - vec3(0.,-.47,0.), vec3(.22,.195,.018), .07), 8.));
+  // the swing: ropes from the top centre to each end of the bar
+  vec3 ps = p; ps.x = abs(ps.x);
+  res = U(res, vec2(sdCap(ps, vec3(.03,BAR+.02,0.), vec3(.64,0.,0.), .02, .02), 10.));
+  res = U(res, vec2(sdCap(ps, vec3(0.,0.,0.), vec3(.72,0.,0.), .042, .042), 11.));
+  res = U(res, vec2(length(ps - vec3(.72,0.,0.)) - .06, 11.));
   return res;
 }
 
@@ -151,7 +159,7 @@ void shade(vec3 pw, vec3 n, float m, out vec3 alb, out float gloss, out float sp
   if (m < 1.5){
     alb = vec3(.90, .62, .17);
     // belly patch
-    float b = sdEll(p - vec3(0., -1.60, .36), vec3(.27, .37, .20));
+    float b = sdEll(p - vec3(0., -1.58, .42), vec3(.31, .39, .20));
     alb = mix(alb, vec3(1., .88, .58), smoothstep(.03, -.04, b));
     // snout darkens toward the tip
     float sn = smoothstep(.36, .9, p.z) * step(-1.72, p.y) * step(p.y, -.82);
@@ -162,14 +170,14 @@ void shade(vec3 pw, vec3 n, float m, out vec3 alb, out float gloss, out float sp
       alb = mix(vec3(.80,.52,.14), vec3(.42,.25,.07), smoothstep(-.15, .15, sin(a*6.5)));
     }
     // pink inside the ears, blush on the cheeks
-    vec2 ec = vec2(abs(p.x) - (.30 + .04*uFail), p.y + .68 + .09*uFail);
-    alb = mix(alb, vec3(.96,.55,.48), smoothstep(.095, .06, length(ec)) * step(.0, p.z));
-    alb = mix(alb, vec3(.97,.55,.45), .45*smoothstep(.13, .03, length(vec3(abs(p.x)-.27, p.y+1.06, p.z-.22))));
+    vec2 ec = vec2(abs(p.x) - (.33 + .04*uFail), p.y + .63 + .09*uFail);
+    alb = mix(alb, vec3(.96,.55,.48), smoothstep(.105, .065, length(ec)) * step(.0, p.z) * step(abs(p.x), .47));
+    alb = mix(alb, vec3(.97,.55,.45), .45*smoothstep(.14, .03, length(vec3(abs(p.x)-.31, p.y+1.03, p.z-.26))));
   } else if (m < 3.5){
     alb = vec3(.07,.04,.03); gloss = 60.; specAmt = .9;
   } else if (m < 4.5){
     bool big = p.x < 0.;
-    vec3 c = big ? EYE_L : EYE_R; float r = big ? .125 : .082;
+    vec3 c = big ? EYE_L : EYE_R; float r = big ? .135 : .092;
     vec3 fwd = normalize(vec3(big ? -.38 : .34, .02, 1.));
     float a = dot(normalize(p - c), fwd);
     alb = vec3(.97,.96,.93);
@@ -183,8 +191,8 @@ void shade(vec3 pw, vec3 n, float m, out vec3 alb, out float gloss, out float sp
   } else if (m < 5.5){
     alb = vec3(.93,.70,.22); gloss = 50.; specAmt = 1.2;
   } else if (m < 6.5){
-    alb = mix(vec3(.33,.46,.28), vec3(.45,.60,.38), smoothstep(-1.66, -1.60, p.y));
-    alb = mix(alb, vec3(.93,.76,.28), smoothstep(.03,.02, length(vec2(p.y+1.66, p.z-.0))) * step(p.x, -.55));
+    alb = mix(vec3(.33,.46,.28), vec3(.45,.60,.38), smoothstep(-1.67, -1.61, p.y));
+    alb = mix(alb, vec3(.93,.76,.28), smoothstep(.03,.02, length(vec2(p.y+1.67, p.z-.0))) * step(p.x, -.66));
     specAmt = .18; gloss = 20.;
   } else if (m < 7.5){
     alb = vec3(.26,.37,.22); specAmt = .12;
@@ -195,17 +203,25 @@ void shade(vec3 pw, vec3 n, float m, out vec3 alb, out float gloss, out float sp
       vec2 u = q.xy - vec2(0., -.47);
       vec3 ink = mix(vec3(.16,.33,.85), vec3(.75,.12,.09), step(.5, uFail));
       alb = mix(alb, ink, smoothstep(.006, -.006, glyph(u)));
-      alb = mix(alb, vec3(.86,.88,.84), smoothstep(.006, .0, abs(sdBox(vec3(u,0.), vec3(.20,.175,1.), .03)) - .004));
+      alb = mix(alb, vec3(.86,.88,.84), smoothstep(.006, .0, abs(sdBox(vec3(u,0.), vec3(.19,.165,1.), .055)) - .004));
     }
-  } else {
+  } else if (m < 9.5){
     alb = vec3(.30,.18,.07); specAmt = .15;
+  } else if (m < 10.5){
+    // rope: twisted strands
+    alb = mix(vec3(.80,.66,.42), vec3(.60,.46,.26), smoothstep(-.3, .3, sin((p.y + abs(p.x)*.9)*95.)));
+    specAmt = .05;
+  } else {
+    // wooden bar, with a little grain
+    alb = mix(vec3(.58,.36,.17), vec3(.46,.27,.11), smoothstep(-.4, .4, sin(p.x*60. + sin(p.z*40.)*1.5)));
+    specAmt = .3; gloss = 30.;
   }
 }
 
 void main(){
-  // 3.4 x 2.9 units of world. His hand (the swing pivot) is at the top centre of the page.
+  // 3.4 x 3.3 units of world. The swing's ropes start at the top centre of the page, which is the pivot.
   vec2 uv = gl_FragCoord.xy / uRes;
-  vec3 ro = vec3((uv.x - .5)*3.4, -(1. - uv.y)*2.9, 3.);
+  vec3 ro = vec3((uv.x - .5)*3.4, -(1. - uv.y)*3.3, 3.);
   vec3 rd = vec3(0., 0., -1.);
 
   float t = 0., minD = 1e3, m = 0.; bool hit = false;
@@ -280,7 +296,7 @@ void main(){
   function resize(){
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const k = Math.min(dpr, Math.max(0.5, zoom * dpr * 1.5));
-    canvas.width = Math.round(270 * k); canvas.height = Math.round(230 * k);
+    canvas.width = Math.round(270 * k); canvas.height = Math.round(262 * k);
     if (gl) gl.viewport(0, 0, canvas.width, canvas.height);
     wake(0.1);
   }
@@ -290,7 +306,7 @@ void main(){
   const now = () => performance.now() / 1000;
   const damped = (t, amp, decay, period) => (t < 0 || t > 4) ? 0 : amp * Math.exp(-decay * t) * Math.sin(2 * Math.PI * t / period);
   function wake(sec){ S.busyUntil = Math.max(S.busyUntil, now() + sec); if (!S.running) { S.running = true; S.last = now(); requestAnimationFrame(frame); } }
-  function swing(amp){ S.swingAt = now(); S.swingAmp = amp; wake(3.6); }
+  function swing(amp){ S.swingAt = now(); S.swingAmp = amp; wake(4.2); }
 
   function frame(){
     const t = now(), dt = Math.min(t - S.last, 0.05); S.last = t;
@@ -302,12 +318,12 @@ void main(){
     const blinkPhase = (t % 5.2) / 0.2, sniffT = (t % 7) - 5.4;
     const u = {
       uYaw: S.yaw,
-      uSwing: reduced ? 0 : damped(ts, S.swingAmp, 1.55, 0.86),
-      uSignSwing: reduced ? 0 : damped(ts - 0.13, -S.swingAmp * 1.5, 1.25, 0.86),
+      uSwing: reduced ? 0 : damped(ts, S.swingAmp, 1.35, 1.05),
+      uSignSwing: reduced ? 0 : damped(ts - 0.13, -S.swingAmp * 1.8, 1.1, 1.05),
       uSignYaw: reduced ? 0 : Math.max(-0.9, Math.min(0.9, -S.yawV * 0.16)),      // the sign lags behind a turn
       uBlink: life && blinkPhase < 1 ? Math.sin(Math.PI * blinkPhase) : 0,
       uKick: reduced ? 0 : damped(t - S.kickAt, 0.55, 2.2, 0.46),
-      uTail: reduced ? 0 : damped(ts - 0.1, S.swingAmp * 1.3, 1.3, 0.86) + (life ? 0.07 * Math.sin(t * 1.05) : 0),
+      uTail: reduced ? 0 : damped(ts - 0.1, S.swingAmp * 1.8, 1.15, 1.05) + (life ? 0.07 * Math.sin(t * 1.05) : 0),
       uSniff: life && sniffT > 0 && sniffT < 1.2 ? Math.sin(sniffT * 15.7) * (1 - sniffT / 1.2) : 0,
       uFail: pose === 'failed' ? 1 : 0,
       uBreathe: life ? 0.012 * Math.sin(t * 1.5) : 0
@@ -334,12 +350,12 @@ void main(){
       if (reduced) { S.yaw = S.yawT = REST; wake(0.2); post({type:'shown'}); return; }
       S.yaw = -0.9; S.yawV = 0; S.yawT = REST;            // he spins in as he drops
       stage.classList.add('dropping'); wake(4.5);
-      later(750, () => { stage.classList.remove('dropping'); swing(0.24); post({type:'shown'}); });
+      later(750, () => { stage.classList.remove('dropping'); swing(0.17); post({type:'shown'}); });
     },
     // level 1: one settling swing. level 2: bigger swing plus a leg kick.
     nudge(level){
       if (reduced || stage.classList.contains('hidden')) return;
-      if (level >= 2) { S.kickAt = now(); swing(0.38); } else swing(0.24);
+      if (level >= 2) { S.kickAt = now(); swing(0.26); } else swing(0.17);
     },
     climb(){
       clear();

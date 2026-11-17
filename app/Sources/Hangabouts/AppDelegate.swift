@@ -22,12 +22,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Resting: Snuffler's head. Hanging: his burrow, with his arm running down to the creature panel.
+    /// Resting: Snuffler's head. Hanging: his burrow, with the swing's rope running down to the creature panel.
     private func updateIcon(hanging: Bool) {
         guard let button = statusItem.button else { return }
         let barHeight = button.bounds.height > 0 ? button.bounds.height : NSStatusBar.system.thickness
         button.image = hanging
-            ? MenuBarIcon.hanging(barHeight: barHeight, armWidth: CreatureController.armWidthAtFullSize * creature.scale)
+            ? MenuBarIcon.hanging(barHeight: barHeight, ropeWidth: CreatureController.ropeWidthAtFullSize * creature.scale)
             : MenuBarIcon.resting(barHeight: barHeight)
     }
 
@@ -49,7 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func setSize(_ sender: NSMenuItem) {
         creature.setScale(CGFloat(sender.tag) / 100)
         sender.menu?.items.forEach { $0.state = ($0 === sender) ? .on : .off }
-        if creature.isShowing { updateIcon(hanging: true) } // the arm in the icon follows his size
+        if creature.isShowing { updateIcon(hanging: true) } // the rope in the icon follows his size
     }
 
     @objc private func toggleIdleLife(_ sender: NSMenuItem) {

@@ -19,8 +19,9 @@ final class CreatureController: NSObject {
     /// The app delegate swaps the menu bar icon between his head and his burrow.
     var onHangingChanged: ((Bool) -> Void)?
 
-    /// Width of his hanging arm on the page at 100%, in points. The burrow icon draws the top of it.
-    static let armWidthAtFullSize: CGFloat = 13.4
+    /// Width of the swing's two ropes where they leave the top of the page at 100%, in points.
+    /// The burrow icon draws the top of them.
+    static let ropeWidthAtFullSize: CGFloat = 9.5
 
     /// Blink, sniff, breathing and a tail sway while he hangs. Off by default:
     /// the spec says he hangs completely still. Saved between launches.
@@ -111,7 +112,7 @@ final class CreatureController: NSObject {
 
     // MARK: - Size
 
-    /// The page is laid out at 270×230 CSS px; page zoom draws it smaller without touching the design.
+    /// The page is laid out at 270×262 CSS px; page zoom draws it smaller without touching the design.
     private func applyScale() {
         webView.pageZoom = scale
         panel.setContentSize(scaledSize)
@@ -179,8 +180,8 @@ final class CreatureController: NSObject {
             let iconFrame = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
             let onAScreen = NSScreen.screens.contains { $0.frame.intersects(iconFrame) }
             if onAScreen {
-                // His hand is at the top centre of the page. It meets the bottom of the menu bar,
-                // where the burrow icon's arm ends.
+                // The swing's ropes start at the top centre of the page. They meet the bottom
+                // of the menu bar, where the burrow icon's rope ends.
                 let menuBarBottom = buttonWindow.frame.minY
                 panel.setFrameOrigin(NSPoint(x: iconFrame.midX - size.width / 2, y: menuBarBottom - size.height))
                 return

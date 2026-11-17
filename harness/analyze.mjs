@@ -15,7 +15,10 @@ if (!existsSync(LOG_FILE)) {
 
 const lines = readFileSync(LOG_FILE, "utf8").split("\n").filter(Boolean).map((l) => {
   try { return JSON.parse(l); } catch { return null; }
-}).filter(Boolean);
+}).filter(Boolean)
+  // Lines can be written out of arrival order (the listener awaits the front-app
+  // lookup before writing). Sort by arrival time; the sort is stable for ties.
+  .sort((a, b) => (a.receivedAtMs ?? 0) - (b.receivedAtMs ?? 0));
 
 // ---- split into runs ----
 const runs = [];
@@ -66,12 +69,12 @@ function runFacts(r) {
 const yn = (b) => (b ? "yes" : "**no**");
 let md = `# Spec 001 results\n\nGenerated ${new Date().toISOString()} from ${lines.length} log lines, ${runs.length} runs.\n\n`;
 
-md += `## Runs\n\n| Scenario | Run | PermissionRequest | Notification (permission) | Stop | idle_prompt | Stop → idle | Sessions | Front app at events |\n|---|---|---|---|---|---|---|---|---|\n`;
+md += `## Runs\n\n| Scenario | Run | PermissionRequest | Notification (permission) | PermissionRequest → Notification | Stop | idle_prompt | Stop → idle | Sessions | Front app at events |\n|---|---|---|---|---|---|---|---|---|---|\n`;
 const runNo = {};
 for (const r of runs) {
   runNo[r.scenario] = (runNo[r.scenario] || 0) + 1;
   const f = runFacts(r);
-  md += `| ${r.scenario} | ${runNo[r.scenario]} | ${yn(f.permissionRequest)} | ${yn(f.notificationPermission)} | ${yn(f.stop)} | ${yn(f.idlePrompt)} | ${fmtMs(f.idleGap)} | ${f.sessions} | ${f.frontApps} |\n`;
+  md += `| ${r.scenario} | ${runNo[r.scenario]} | ${yn(f.permissionRequest)} | ${yn(f.notificationPermission)} | ${fmtMs(f.notifDelayAfterPermReq)} | ${yn(f.stop)} | ${yn(f.idlePrompt)} | ${fmtMs(f.idleGap)} | ${f.sessions} | ${f.frontApps} |\n`;
 }
 
 md += `\n## Event order per run\n\n`;

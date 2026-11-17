@@ -118,11 +118,13 @@ Open a second sandbox session in terminal C (`cd sandbox && claude`). Give both 
 | Result | Decision |
 |---|---|
 | `PermissionRequest` fires in A1 to A5, 3 of 3 runs each | **Go.** Use it for "needs you." |
-| Only `Notification` is reliable, and A3 fails | **Go with a caveat.** Document "second monitor counts as present." |
+| `PermissionRequest` is unreliable, `Notification` fires in A2, A4 and A5 but not A3 | **Go with a caveat.** Document "second monitor counts as present." |
 | Neither fires reliably in A2 and A4 | **Stop.** Look at the terminal status protocol (OSC 7501) instead. |
 | `Stop` fires in every B, C and D run | Required for "done." |
+| D1: one `PreToolUse` and one `PostToolUse` per tool call | Required for "busy." |
+| E1: `SubagentStart` and `SubagentStop` fire | Nice to have. |
 | Every event has `session_id` and `cwd` | Required for routing to the right creature. |
-| In A1, the event shows in the listener within about 1 second of the prompt appearing | Required. |
+| In A1, `PermissionRequest` shows in the listener within about 1 second of the prompt appearing | Required. `Notification` can't meet this: Claude Code waits about 6 seconds before sending it. |
 
 ## Analysing the results
 
@@ -142,6 +144,9 @@ Open a second sandbox session in terminal C (`cd sandbox && claude`). Give both 
 
 ## Risks to the test itself
 
-- **The listener isn't running.** Hooks fail quietly. Always start `npm run listen` first.
-- **Over-approving.** If you choose "always allow" for `date`, later A runs won't prompt. Pick "yes, once" every time. If you slip, remove the rule with `/permissions`.
+- **The listener isn't running.** Events are lost. Claude Code shows a non-blocking hook error. Always start `npm run listen` first.
+- **`date` might not prompt.** The docs don't list it as auto-approved, but check. Dry-run A1 once before the real runs. If no prompt appears, use `touch hello.txt` instead.
+- **Over-approving.** If you choose "always allow" for `date`, later A runs won't prompt. Pick "yes, once" every time. Claude Code saves the rule in `.claude/settings.local.json` at the **repo root**, not in `sandbox/`. It applies to both sandboxes. If you slip, remove it with `/permissions`.
+- **The repo's `CLAUDE.md` loads in sandbox sessions.** The sandbox is inside this repo, so Claude sees the build instructions. Expect the odd extra tool call. Note any in the results.
+- **`Notification(permission_prompt)` is delayed by design.** It fires after the prompt has waited about 6 seconds, and typing delays it further. A fast answer may mean it never fires. That's not a hook failure.
 - **"Away" may use a timer, not focus.** A5 is there to catch that.

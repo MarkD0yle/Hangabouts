@@ -1,5 +1,6 @@
 import AppKit
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     // Must live as long as the app, or the icon disappears at once.
     private var statusItem: NSStatusItem!
@@ -49,7 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.autoenablesItems = false
         let current = Int((creature.scale * 100).rounded())
-        for (title, percent) in [("Small (50%)", 50), ("Medium (70%)", 70), ("Full (100%)", 100)] {
+        for (title, percent) in [("Tiny (25%)", 25), ("Small (35%)", 35), ("Medium (50%)", 50), ("Large (70%)", 70), ("Full (100%)", 100)] {
             let option = action(title, #selector(setSize(_:)))
             option.tag = percent
             option.state = (percent == current) ? .on : .off

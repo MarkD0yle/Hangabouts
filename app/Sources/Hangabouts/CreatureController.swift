@@ -18,7 +18,7 @@ final class CreatureController: NSObject {
     /// Size of Snuffler relative to the 180×225 design. Saved between launches.
     private(set) var scale: CGFloat
     static let scaleKey = "creatureScale"
-    static let defaultScale: CGFloat = 0.5
+    static let defaultScale: CGFloat = 0.35
 
     private var scaledSize: NSSize {
         NSSize(width: (CreaturePanel.baseSize.width * scale).rounded(),

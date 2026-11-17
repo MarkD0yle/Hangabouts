@@ -1,6 +1,8 @@
 # Hangabouts
 
-*(Working name. Repo codename: agent-bestiary.)*
+*(Working name.)*
+
+**Building the app?** Open Claude Code at the repo root and say: "Read KICKOFF.md and follow it."
 
 Odd little creatures that show what your AI agents are doing.
 

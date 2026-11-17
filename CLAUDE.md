@@ -4,7 +4,7 @@ Guidance for Claude Code working in this repo.
 
 ## What this project is
 
-Hangabouts (codename agent-bestiary): animated creatures in the macOS menu bar that show the status of AI agents. Read `README.md` first.
+Hangabouts: animated creatures in the macOS menu bar that show the status of AI agents. Read `README.md` first.
 
 ## Current phase
 
@@ -14,6 +14,7 @@ Two specs run in parallel:
 - **Spec 002** (`specs/002-test-hangabout.md`): build the test app in `app/`. You build it, milestone by milestone (M1 to M5). Stop after each milestone so the human can run it.
 
 When building Spec 002:
+- Start from `KICKOFF.md`. It has the M1 brief and known traps.
 - Read the whole spec first, then `app-assets/snuffler-hanging.html` for the creature's JS API.
 - Copy assets from `app-assets/` into `app/Resources/`. Don't edit the creature's look; that's a design change.
 - No third-party dependencies.

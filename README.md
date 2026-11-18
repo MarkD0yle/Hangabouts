@@ -24,7 +24,7 @@ Built so far: Busy and Needs you. Done and Failed come in Spec 002's last milest
 | Spec | What | State |
 |---|---|---|
 | [001](specs/001-hook-reliability.md) | Can Claude Code hooks drive the creatures reliably? | Ready to run |
-| [002](specs/002-test-hangabout.md) | The test app: menu bar icon, hook server, Snuffler, card | In progress (M4 of 5) |
+| [002](specs/002-test-hangabout.md) | The test app: menu bar icon, hook server, Snuffler, card | In progress (M4 of 5 done) |
 | [003](specs/003-snuffler-character.md) | Snuffler as a 3D character, with a burrow icon | In progress (built, checks not run) |
 | [004](specs/004-snuffler-motion-and-fur.md) | Physics swing, fur, messy burrow, rope | Waiting on a decision |
 | [005](specs/005-readme.md) | This README | In progress |

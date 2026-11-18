@@ -1,6 +1,6 @@
 # Spec 002: Build a test Hangabout
 
-**Status:** In progress (M4 of 5). M1 to M3 are merged. M4, the card, is on branch `spec-002-m4`.
+**Status:** In progress (M4 of 5 done). M1 to M4 are merged. M5, polish for the test, is next.
 **Owner:** Mark (product), Claude Code (build)
 **Depends on:** Spec 001 for the final "needs you" event. This build listens to both candidate events, so it can start now.
 **Working name:** Hangabouts. Known risk: "hang" means "frozen" in software. Revisit before any public launch.

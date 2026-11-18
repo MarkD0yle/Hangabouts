@@ -11,7 +11,7 @@ Hangabouts: animated creatures in the macOS menu bar that show the status of AI 
 Each spec's header holds its true state. `README.md` has the summary table. Update both, and this section, in the same pull request when a milestone merges.
 
 - **Spec 001** (`specs/001-hook-reliability.md`): tests whether Claude Code hook events are reliable. The human runs it. Ready to run.
-- **Spec 002** (`specs/002-test-hangabout.md`): build the test app in `app/`. You build it, milestone by milestone (M1 to M5). Stop after each milestone so the human can run it. M1 to M3 are merged. M4, the card, is on branch `spec-002-m4`.
+- **Spec 002** (`specs/002-test-hangabout.md`): build the test app in `app/`. You build it, milestone by milestone (M1 to M5). Stop after each milestone so the human can run it. M1 to M4 are merged. M5, polish for the test, is next.
 - **Spec 003** (`specs/003-snuffler-character.md`): Snuffler as a 3D character with a burrow icon. Built and merged. The human hasn't run its checks yet.
 - **Spec 004** (`specs/004-snuffler-motion-and-fur.md`): physics swing, fur, messy burrow, rope. Built, except the blinking icon. That waits on the human's decision. Don't build it until asked.
 - **Spec 005** (`specs/005-readme.md`): what `README.md` must hold. Follow it when you edit the README.

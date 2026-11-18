@@ -1,10 +1,13 @@
 import AppKit
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // Must live as long as the app, or the icon disappears at once.
     private var statusItem: NSStatusItem!
     private var creature: CreatureController!
+    private let sessions = SessionStore()
+    private let server = HookServer()
+    private let eventLog = EventLog()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength) // the icon is wider than it is tall
@@ -14,7 +17,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         creature = CreatureController(statusItem: statusItem)
         creature.onHangingChanged = { [weak self] hanging in self?.updateIcon(hanging: hanging) }
         updateIcon(hanging: false)
-        statusItem.menu = buildMenu()
+
+        // The menu is rebuilt each time it opens (menuNeedsUpdate), so the session list is always current.
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        menu.delegate = self
+        populate(menu)
+        statusItem.menu = menu
+
+        sessions.onChange = { [weak self] in self?.sessionsChanged() }
+        eventLog.onLog = { [weak self] in self?.creature.log($0) }
+        eventLog.open()
+        server.onLog = { [weak self] in self?.creature.log($0) }
+        server.onEvent = { [weak self] in self?.received($0) }
+        server.start()
 
         // For checking a build from a terminal: Hangabouts --simulate-needs
         if CommandLine.arguments.contains("--simulate-needs") {
@@ -31,10 +47,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             : MenuBarIcon.resting(barHeight: barHeight)
     }
 
-    // MARK: - Debug actions (M2)
+    // MARK: - Hook events (M3)
+
+    private func received(_ event: HookEvent) {
+        let stateAfter = sessions.apply(event)
+        eventLog.append(event, stateAfter: stateAfter?.rawValue)
+        if event.payload["session_id"] as? String == nil {
+            creature.log("\(event.name) had no session_id; logged and ignored")
+        }
+    }
+
+    /// Snuffler hangs for the highest-priority session: Failed, then Needs you. Otherwise he stays up.
+    private func sessionsChanged() {
+        switch sessions.top?.state {
+        case .failed: creature.present(.failed)
+        case .needsYou: creature.present(.needs)
+        default: creature.present(nil)
+        }
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        populate(menu)
+    }
+
+    @objc private func setNeedsYouSource(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let source = NeedsYouSource(rawValue: raw) else { return }
+        sessions.needsYouSource = source
+    }
+
+    @objc private func openEventLog() {
+        eventLog.open() // makes sure the file exists
+        NSWorkspace.shared.open(eventLog.url)
+    }
+
+    // MARK: - Debug actions
 
     @objc private func simulateNeedsYou() {
-        creature.simulateNeedsYou()
+        // Already simulated: give him a push instead, as in M2.
+        if !sessions.simulateNeedsYou() { creature.nudge() }
     }
 
     @objc private func simulateNeedsYouDelayed() {
@@ -43,7 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func clearAll() {
-        creature.clearAll()
+        sessions.clearAll()
     }
 
     @objc private func setSize(_ sender: NSMenuItem) {
@@ -86,17 +137,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return item
     }
 
-    // M1: full structure, later items disabled.
-    private func buildMenu() -> NSMenu {
-        let menu = NSMenu()
-        menu.autoenablesItems = false
-
+    // Items for later milestones are present but disabled.
+    private func populate(_ menu: NSMenu) {
         let title = NSMenuItem(title: "Hangabouts", action: nil, keyEquivalent: "")
         title.isEnabled = false
         menu.addItem(title)
         menu.addItem(.separator())
 
-        menu.addItem(disabled("No sessions yet"))
+        switch server.status {
+        case .portInUse: menu.addItem(disabled("Port \(HookServer.port) in use"))
+        case .failed: menu.addItem(disabled("Hook server not running"))
+        case .starting, .listening: break
+        }
+        let list = sessions.ordered
+        if list.isEmpty { menu.addItem(disabled("No sessions yet")) }
+        for session in list {
+            menu.addItem(disabled("\(session.folderName) – \(session.state.menuLabel)"))
+        }
         menu.addItem(.separator())
 
         let hide = disabled("Hide Hangabouts") // built in M5
@@ -104,12 +161,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hide.keyEquivalentModifierMask = [.control, .option]
         menu.addItem(hide)
 
-        let source = disabled("Needs you comes from") // built in M3
+        let source = NSMenuItem(title: "Needs you comes from", action: nil, keyEquivalent: "")
         let sourceMenu = NSMenu()
         sourceMenu.autoenablesItems = false
-        sourceMenu.addItem(disabled("PermissionRequest only"))
-        sourceMenu.addItem(disabled("Notification only"))
-        sourceMenu.addItem(disabled("Both"))
+        for option in NeedsYouSource.allCases {
+            let item = action(option.menuLabel, #selector(setNeedsYouSource(_:)))
+            item.representedObject = option.rawValue
+            item.state = (option == sessions.needsYouSource) ? .on : .off
+            sourceMenu.addItem(item)
+        }
         source.submenu = sourceMenu
         menu.addItem(source)
 
@@ -131,7 +191,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         tired.state = creature.tired ? .on : .off
         debugMenu.addItem(tired)
         debugMenu.addItem(disabled("Short escalation timers")) // M5
-        debugMenu.addItem(disabled("Open event log"))          // M3
+        debugMenu.addItem(action("Open event log", #selector(openEventLog)))
         debug.submenu = debugMenu
         menu.addItem(debug)
 
@@ -139,7 +199,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let quit = NSMenuItem(title: "Quit Hangabouts", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         quit.target = NSApp
         menu.addItem(quit)
-        return menu
     }
 
     private func action(_ title: String, _ selector: Selector) -> NSMenuItem {

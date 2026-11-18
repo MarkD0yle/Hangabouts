@@ -89,14 +89,20 @@ The app keeps state **per Claude Code session** (key: `session_id`). Ignore even
 | Event received | Session state becomes |
 |---|---|
 | `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse` | **Working** |
+| `PreToolUse` for the `AskUserQuestion` tool | **Needs you** (reason: "Has a question") |
 | `PermissionRequest` | **Needs you** (reason: tool name, e.g. "Wants to run Bash") |
+| `PermissionDenied` (auto mode blocked a tool call) | **Needs you** (reason: e.g. "Auto mode blocked Bash") |
 | `Notification` with `notification_type` `permission_prompt` | **Needs you**, unless already Needs you |
-| `Notification` with `notification_type` `idle_prompt` | **Needs you** (reason: "Waiting for your reply") |
-| `Stop` | **Done**, unless the session is Needs you because of an `idle_prompt` that arrived after it |
-| `StopFailure` | **Failed** (reason: error type, if the payload has one) |
+| `Notification` with `notification_type` `idle_prompt` | **Done**, if the session was Working. Otherwise no change |
+| `Stop` | **Done** |
+| `StopFailure` | **Failed** (reason: `error`, plus `error_details` if present) |
 | `SessionEnd` | Remove the session |
 
 **How "Needs you" clears:** any later `PreToolUse`, `PostToolUse`, `UserPromptSubmit` or `Stop` for that session means you answered. Snuffler climbs back up.
+
+**Exception, auto mode blocks:** a later tool event clears it (Claude found a way round). `Stop` does not: if the turn ends still blocked, he stays until your next prompt.
+
+**How "Failed" clears:** only the next `UserPromptSubmit` or `SessionStart` for that session. Tool events and `Stop` leave it Failed.
 
 **Event source switch:** a menu setting, "Needs you comes from", with three options: `PermissionRequest` only, `Notification` only, or both (default). Spec 001 decides which wins.
 
@@ -212,14 +218,30 @@ Run with `sandbox-002`. Use "yes, once" on every permission prompt, never "alway
 | T13 | Quit the app, use Claude Code in the sandbox | Claude Code works normally. Non-blocking hook errors are expected; nothing blocks or hangs |
 | T14 | Typing in another app when Snuffler drops | Typing isn't interrupted; focus doesn't move |
 
-## Open questions (decide before M3)
+## Decisions made for M3
 
-From a review against the Claude Code hooks docs:
+Auto mode is now Claude Code's default. It approves low-risk tool calls itself, so `PermissionRequest` rarely fires and Snuffler rarely dropped. Two triggers were added for it:
 
-- **`idle_prompt` fires about 60 s after *every* finished turn** if you haven't typed and seem away. Mapping it to Needs you means Snuffler drops after every task you walk away from. That clashes with "Done: finished work waits for you." Options: map it to Done, or drop it.
-- **Nothing clears Failed.** Suggest: the next `UserPromptSubmit` or `SessionStart` for that session.
-- **`Stop` doesn't fire on Esc.** If you interrupt at a permission prompt, Needs you stays until your next prompt. Suggest: clear on `UserPromptSubmit` (already in the list), and check `PostToolUseFailure` with `is_interrupt`. Add an interrupt scenario to Spec 001 if this matters.
-- **`StopFailure` payload:** the reason is in `error` (e.g. `rate_limit`), with optional `error_details`.
+- **A question (`AskUserQuestion`) maps to Needs you.** The source switch doesn't apply to it.
+- **An auto mode block (`PermissionDenied`) maps to Needs you.** Risk: Claude often routes round a block within seconds, so he may drop briefly for nothing.
+- **Neither has been seen in a real session yet.** Headless runs have no question tool, and auto mode didn't block the harmless test commands. Both were tested with hand-made events built from the hooks docs.
+
+Seen in real sessions:
+
+- **`SessionStart` does not arrive over HTTP hooks.** A session first appears on its first prompt.
+- **A failed tool call sends no `PostToolUse`.** It sends `PostToolUseFailure`, which the sandbox doesn't hook.
+
+These were open questions from a review against the Claude Code hooks docs. Not yet checked against Spec 001 results.
+
+- **`idle_prompt` maps to Done, not Needs you.** It fires about 60 s after every finished turn. Mapping it to Needs you would drop Snuffler after every task you walk away from.
+- **Failed clears on the next `UserPromptSubmit` or `SessionStart`** for that session.
+- **`StopFailure` reason** comes from `error` (e.g. `rate_limit`), with optional `error_details`.
+
+Known limits:
+
+- **`Stop` doesn't fire on Esc.** If you interrupt at a permission prompt, Needs you stays until your next prompt. Add an interrupt scenario to Spec 001 if this matters.
+- **Parallel tool calls can clear Needs you early.** A `PostToolUse` from another tool in the same session counts as "you answered".
+- **Debug › Clear all forgets real sessions too.** They come back on their next event.
 
 ## The experiment this enables
 

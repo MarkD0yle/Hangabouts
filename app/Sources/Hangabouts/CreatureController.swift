@@ -15,6 +15,16 @@ final class CreatureController: NSObject {
     private var pendingCalls: [String] = []
     private(set) var isShowing = false
 
+    /// The page's two poses (see `hangabout.show`).
+    enum Pose: String {
+        case needs
+        case failed
+    }
+
+    private var wanted: Pose?   // what the sessions call for
+    private var shown: Pose?    // what the page was last told to show
+    private var climbing = false
+
     /// Called with `true` when Snuffler drops and `false` once he has climbed back.
     /// The app delegate swaps the menu bar icon between his head and his burrow.
     var onHangingChanged: ((Bool) -> Void)?
@@ -82,17 +92,34 @@ final class CreatureController: NSObject {
 
     // MARK: - Public
 
-    /// Debug › Simulate Needs you. Shows Snuffler, or nudges him if he's already hanging.
-    func simulateNeedsYou() {
-        if isShowing {
-            call("hangabout.nudge(1)")
-            return
+    /// What Snuffler should be doing: hanging in a pose, or (nil) up in his burrow.
+    /// Safe to call at any time, including mid-climb: he finishes the climb, then drops again.
+    func present(_ pose: Pose?) {
+        wanted = pose
+        reconcile()
+    }
+
+    /// Moves the page towards `wanted`, one step at a time.
+    private func reconcile() {
+        guard !climbing, wanted != shown else { return }
+        if let pose = wanted {
+            positionPanel()
+            panel.orderFrontRegardless() // never makeKey: focus must stay where it is
+            isShowing = true
+            shown = pose
+            onHangingChanged?(true)
+            call("hangabout.show('\(pose.rawValue)')")
+        } else {
+            // The panel is ordered out when the page says "climbed".
+            climbing = true
+            call("hangabout.climb()")
         }
-        positionPanel()
-        panel.orderFrontRegardless() // never makeKey: focus must stay where it is
-        isShowing = true
-        onHangingChanged?(true)
-        call("hangabout.show('needs')")
+    }
+
+    /// A push on the swing. Only while he hangs.
+    func nudge() {
+        guard isShowing else { return }
+        call("hangabout.nudge(1)")
     }
 
     /// Debug › Idle life.
@@ -127,12 +154,6 @@ final class CreatureController: NSObject {
         UserDefaults.standard.set(Double(newScale), forKey: CreatureController.scaleKey)
         applyScale()
         if isShowing { positionPanel() }
-    }
-
-    /// Debug › Clear all. Climbs back up; the panel is ordered out when the page says "climbed".
-    func clearAll() {
-        guard isShowing else { return }
-        call("hangabout.climb()")
     }
 
     // MARK: - Size
@@ -187,8 +208,11 @@ final class CreatureController: NSObject {
         case "climbed":
             panel.orderOut(nil) // remove the window so nothing invisible blocks clicks
             isShowing = false
+            shown = nil
+            climbing = false
             onHangingChanged?(false)
             log("climbed")
+            reconcile() // something may have needed him again while he climbed
         case "error":
             log("page error: \(body["message"] as? String ?? "unknown")")
         default:
@@ -227,7 +251,7 @@ final class CreatureController: NSObject {
 
     // MARK: - Logging
 
-    private func log(_ text: String) {
+    func log(_ text: String) {
         logger.log("\(text, privacy: .public)")
         print("[Hangabouts] \(text)") // visible when running the binary from Terminal
     }

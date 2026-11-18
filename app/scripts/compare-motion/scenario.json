@@ -1,0 +1,23 @@
+{ "steps": 4500, "actions": [
+  { "step": 30,   "do": "show",  "arg": "needs" },
+  { "step": 390,  "do": "nudge", "arg": 1 },
+  { "step": 630,  "do": "nudge", "arg": 2 },
+  { "step": 990,  "do": "swap" },
+  { "step": 1290, "do": "turn",  "arg": -1.0 },
+  { "step": 1400, "do": "nudge", "arg": 1 },
+  { "step": 1470, "do": "tired", "arg": true },
+  { "step": 2430, "do": "tired", "arg": false },
+  { "step": 2430, "do": "idle",  "arg": true },
+  { "step": 3600, "do": "idle",  "arg": false },
+  { "step": 3630, "do": "climb" },
+  { "step": 3750, "do": "show",  "arg": "failed" },
+  { "step": 3770, "do": "climb" },
+  { "step": 3900, "do": "reduced", "arg": true },
+  { "step": 3910, "do": "show",  "arg": "needs" },
+  { "step": 3960, "do": "nudge", "arg": 2 },
+  { "step": 3990, "do": "swap" },
+  { "step": 4050, "do": "climb" },
+  { "step": 4080, "do": "reduced", "arg": false },
+  { "step": 4090, "do": "show",  "arg": "failed" },
+  { "step": 4120, "do": "show",  "arg": "needs" }
+] }

@@ -42,9 +42,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         server.onEvent = { [weak self] in self?.received($0) }
         server.start()
 
-        // For checking a build from a terminal: Hangabouts --simulate-needs [--open-card]
+        // For checking a build from a terminal: Hangabouts --simulate-needs [--open-card] [--then-clear]
         if CommandLine.arguments.contains("--simulate-needs") {
             perform(#selector(simulateNeedsYou), with: nil, afterDelay: 1)
+            if CommandLine.arguments.contains("--then-clear") {
+                perform(#selector(clearAll), with: nil, afterDelay: 8)
+            }
             if CommandLine.arguments.contains("--open-card") {
                 perform(#selector(toggleCard), with: nil, afterDelay: 4)
             }
@@ -206,26 +209,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         sender.state = creature.tired ? .on : .off
     }
 
-    /// Debug › Renderer submenu (Spec 006). Metal draws a still image only until M2.
-    private func rendererMenuItem() -> NSMenuItem {
-        let item = NSMenuItem(title: "Renderer", action: nil, keyEquivalent: "")
-        let menu = NSMenu()
-        for (title, renderer) in [("WebGL", CreatureController.Renderer.webgl), ("Metal (still image only)", .metal)] {
-            let option = NSMenuItem(title: title, action: #selector(setRenderer(_:)), keyEquivalent: "")
-            option.target = self
-            option.representedObject = renderer.rawValue
-            option.state = creature.renderer == renderer ? .on : .off
-            menu.addItem(option)
-        }
-        item.submenu = menu
-        return item
-    }
-
-    @objc private func setRenderer(_ sender: NSMenuItem) {
-        guard let raw = sender.representedObject as? String, let renderer = CreatureController.Renderer(rawValue: raw) else { return }
-        creature.setRenderer(renderer)
-    }
-
     /// Debug › Size submenu. Tags are percentages.
     private func sizeMenuItem() -> NSMenuItem {
         let item = NSMenuItem(title: "Size", action: nil, keyEquivalent: "")
@@ -287,7 +270,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         debugMenu.addItem(disabled("Simulate Done"))           // M5
         debugMenu.addItem(action("Clear all", #selector(clearAll)))
         debugMenu.addItem(sizeMenuItem())
-        debugMenu.addItem(rendererMenuItem())                  // Spec 006, until M5
         let idle = action("Idle life (blink, sniff, pump, swap arms)", #selector(toggleIdleLife(_:))) // debug-only, off by default
         idle.state = creature.idleLife ? .on : .off
         debugMenu.addItem(idle)

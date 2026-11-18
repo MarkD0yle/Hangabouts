@@ -1,9 +1,9 @@
 // Spec 006 M1: renders the same fixed uniforms through the page's GLSL (in WebKit) and through
 // snuffler.metal, and compares the raw premultiplied pixels.
 // Prints the difference per case and writes pictures: WebGL | Metal | difference ×16.
-// Not part of the app (it needs WebKit). Goes away with the page in M5. Build and run from app/:
-//   swiftc -O -swift-version 5 scripts/compare-renderers/main.swift Sources/Hangabouts/SnufflerUniforms.swift Sources/Hangabouts/SnufflerView.swift -o /tmp/compare-renderers
-//   /tmp/compare-renderers Resources/snuffler-hanging.html Resources/snuffler.metal /tmp/compare-out
+// Not part of the app (it needs WebKit). Only useful while the shader is meant to match the old page. Build and run from app/:
+//   swiftc -O -swift-version 5 scripts/compare-renderers/main.swift Sources/Hangabouts/SnufflerUniforms.swift Sources/Hangabouts/SnufflerMotion.swift Sources/Hangabouts/SnufflerView.swift -o /tmp/compare-renderers
+//   /tmp/compare-renderers ../design/snuffler-hanging.html Resources/snuffler.metal /tmp/compare-out
 import AppKit
 import WebKit
 import Metal

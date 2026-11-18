@@ -24,19 +24,13 @@ struct SnufflerUniforms {
 
     /// Resting turn: three-quarter view, facing right. `REST` in the page.
     static let restYaw: Float = 0.95
-
-    /// Hanging still, as the page draws him once he has settled.
-    static func still(failed: Bool) -> SnufflerUniforms {
-        var u = SnufflerUniforms()
-        u.uFail = failed ? 1 : 0
-        return u
-    }
 }
 
 /// Uniforms of the drop-shadow pass. Must match `struct CompositeUniforms` in snuffler.metal.
 struct CompositeUniforms {
     var res: SIMD2<Float>
     var offset: SIMD2<Float>
+    var shift: SIMD2<Float>
     var sigma: Float
     var lod: Float
 }

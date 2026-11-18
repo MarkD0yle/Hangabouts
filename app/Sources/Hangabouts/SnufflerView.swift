@@ -58,8 +58,9 @@ final class SnufflerRenderer {
     }
 
     /// Draws one frame into `target`, at the target's size. `shadow: false` gives pass 1 alone,
-    /// which is exactly what the page's WebGL canvas holds.
-    func draw(_ uniforms: SnufflerUniforms, to target: MTLTexture, shadow: Bool = true,
+    /// which is exactly what the page's WebGL canvas holds. `translateY` slides the whole picture,
+    /// as a fraction of its height (positive is down).
+    func draw(_ uniforms: SnufflerUniforms, to target: MTLTexture, shadow: Bool = true, translateY: Float = 0,
               presenting drawable: MTLDrawable? = nil, waitUntilDone: Bool = false) {
         let width = target.width, height = target.height
         if scene?.width != width || scene?.height != height {
@@ -95,7 +96,7 @@ final class SnufflerRenderer {
         // The page's shadow is drop-shadow(1px 4px 4px ...) in design pixels; k turns those into target pixels.
         let k = Float(width) / SnufflerRenderer.designSize.x
         let sigma = shadow ? 4 * k : 0
-        var c = CompositeUniforms(res: u.uRes, offset: SIMD2(1 * k, 4 * k), sigma: sigma, lod: max(0, log2(max(sigma, 0.001) / 2)))
+        var c = CompositeUniforms(res: u.uRes, offset: SIMD2(1 * k, 4 * k), shift: SIMD2(0, translateY * Float(height)), sigma: sigma, lod: max(0, log2(max(sigma, 0.001) / 2)))
         pass(target) { e in
             e.setRenderPipelineState(compositePipeline)
             e.setFragmentBytes(&c, length: MemoryLayout<CompositeUniforms>.stride, index: 0)
@@ -109,29 +110,64 @@ final class SnufflerRenderer {
 }
 
 /// Snuffler, drawn by Metal instead of a web page. Spec 006.
-/// M1: a still image only. Motion (M2), drag, keyboard and accessibility (M4) come later.
+/// Owns the motion model and runs it: a display link while he moves, a timer for what comes later.
 @MainActor
 final class SnufflerView: NSView {
-    /// Called on a plain click.
+    /// Called on a plain click (not a drag).
     var onClicked: (() -> Void)?
+    /// Called when he has landed after `show`.
+    var onShown: (() -> Void)?
+    /// Called when he is back in his burrow after `climb`.
+    var onClimbed: (() -> Void)?
 
-    let renderer: SnufflerRenderer
-    private var uniforms = SnufflerUniforms.still(failed: false)
+    /// Called once the shader has compiled, with how long it took in seconds.
+    var onReady: ((Double) -> Void)?
+    /// Called if the shader doesn't compile. Nothing will be drawn.
+    var onFailed: ((Error) -> Void)?
+
+    private let device: MTLDevice
+    private var renderer: SnufflerRenderer?   // nil until the shader has compiled
+    private let motion = SnufflerMotion()
     private var zoom: CGFloat = 1
+    private var link: CADisplayLink?
+    private var eventTimer: Timer?
 
     private var metalLayer: CAMetalLayer { layer as! CAMetalLayer }
+    private var now: Double { CACurrentMediaTime() }
 
-    /// Throws if Metal isn't available or the shader doesn't compile. The controller then falls back to WebGL.
+    /// Throws if Metal isn't available or the shader file is missing.
+    ///
+    /// The shader compiles on a background queue: a cold compile takes about 250 ms, too long for the main thread.
+    /// Nothing waits for it. The motion runs from the first call; frames are simply not drawn until it is ready.
     init(size: NSSize) throws {
         guard let device = MTLCreateSystemDefaultDevice() else { throw SnufflerRenderError(description: "Metal is not available") }
-        // Same Bundle.main rule as the page: resources are copied by scripts/bundle.sh, not by SwiftPM.
+        // Bundle.main, not Bundle.module: resources are copied by scripts/bundle.sh, not by SwiftPM.
         guard let url = Bundle.main.url(forResource: "snuffler", withExtension: "metal") else {
             throw SnufflerRenderError(description: "snuffler.metal is missing from the app's Resources")
         }
-        renderer = try SnufflerRenderer(device: device, source: try String(contentsOf: url, encoding: .utf8))
+        let source = try String(contentsOf: url, encoding: .utf8)
+        self.device = device
         super.init(frame: NSRect(origin: .zero, size: size))
         wantsLayer = true
         layerContentsRedrawPolicy = .never
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let result = Result { try SnufflerRenderer(device: device, source: source) }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { self?.compiled(result) }
+            }
+        }
+    }
+
+    private func compiled(_ result: Result<SnufflerRenderer, Error>) {
+        switch result {
+        case .success(let renderer):
+            self.renderer = renderer
+            draw(motion.current(now: now))
+            onReady?(renderer.compileSeconds)
+        case .failure(let error):
+            onFailed?(error)
+        }
     }
 
     @available(*, unavailable)
@@ -139,7 +175,7 @@ final class SnufflerView: NSView {
 
     override func makeBackingLayer() -> CALayer {
         let l = CAMetalLayer()
-        l.device = renderer.device
+        l.device = device
         l.pixelFormat = SnufflerRenderer.pixelFormat
         l.isOpaque = false                       // premultiplied alpha over the desktop, as WebGL's canvas was
         l.framebufferOnly = true
@@ -149,13 +185,30 @@ final class SnufflerView: NSView {
         return l
     }
 
-    // MARK: - API
+    // MARK: - API. The same calls the page had (`window.hangabout`).
 
-    /// Hanging still in a pose.
-    func showStill(failed: Bool) {
-        uniforms = .still(failed: failed)
-        redraw()
+    /// He drops in a pose. `onShown` follows when he lands.
+    func show(failed: Bool) {
+        let out = motion.show(failed: failed, now: now)
+        draw(motion.current(now: now))   // at once, so the panel never shows where he last was
+        handle(out)
     }
+
+    /// 1: a push on the swing. 2: he pumps it himself for a few beats.
+    func nudge(level: Int) { motion.nudge(level: level, now: now); schedule() }
+
+    func swapArms() { motion.swapArms(now: now); schedule() }
+
+    /// He climbs back up. `onClimbed` follows.
+    func climb() { handle(motion.climb(now: now)) }
+
+    func hide() { motion.hide(); schedule() }
+
+    func setIdle(_ on: Bool) { motion.setIdle(on, now: now); schedule() }
+
+    func setTired(_ on: Bool) { motion.setTired(on, now: now); schedule() }
+
+    func setReducedMotion(_ on: Bool) { motion.setReducedMotion(on, now: now); schedule() }
 
     /// His size relative to the 270×262 design, so no more pixels are drawn than are shown.
     func setZoom(_ z: CGFloat) {
@@ -171,7 +224,7 @@ final class SnufflerView: NSView {
         let k = min(dpr, max(0.5, zoom * dpr * 1.5))
         let size = CGSize(width: (270 * k).rounded(), height: (262 * k).rounded())
         if metalLayer.drawableSize != size { metalLayer.drawableSize = size }
-        redraw()
+        draw(motion.current(now: now))
     }
 
     override func viewDidChangeBackingProperties() {
@@ -181,14 +234,56 @@ final class SnufflerView: NSView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        link?.invalidate()
+        link = nil
+        if window != nil {
+            // The view's own display link follows whichever screen he is on (macOS 14).
+            let l = displayLink(target: self, selector: #selector(tick))
+            l.isPaused = true
+            l.add(to: .main, forMode: .common)
+            link = l
+        }
         updateDrawableSize()
+        schedule()
     }
 
-    // MARK: - Drawing
+    // MARK: - Running the motion
 
-    private func redraw() {
-        guard window != nil, metalLayer.drawableSize.width > 0, let drawable = metalLayer.nextDrawable() else { return }
-        renderer.draw(uniforms, to: drawable.texture, presenting: drawable)
+    /// One display refresh. The page's `frame()`.
+    @objc private func tick() {
+        let t = now
+        let out = motion.fire(now: t)
+        if motion.running { draw(motion.frame(now: t)) }
+        handle(out)
+    }
+
+    private func handle(_ out: [SnufflerMotion.Output]) {
+        schedule()
+        for o in out {
+            switch o {
+            case .shown: onShown?()
+            case .climbed: onClimbed?()
+            }
+        }
+    }
+
+    /// Runs the display link only while he moves, and sets a timer for the next thing due while he is still.
+    private func schedule() {
+        link?.isPaused = !motion.running
+        eventTimer?.invalidate()
+        eventTimer = nil
+        guard let at = motion.nextEventTime else { return }
+        let timer = Timer(timeInterval: max(0, at - now), repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.tick() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        eventTimer = timer
+    }
+
+    private func draw(_ frame: SnufflerMotion.Frame) {
+        guard let renderer, window != nil, metalLayer.drawableSize.width > 0, let drawable = metalLayer.nextDrawable() else { return }
+        // Hidden: slide him right off the page, so the drawable is clear.
+        renderer.draw(frame.uniforms, to: drawable.texture, translateY: motion.isHidden ? -10 : Float(frame.translateY), presenting: drawable)
     }
 
     // MARK: - Input
@@ -196,7 +291,45 @@ final class SnufflerView: NSView {
     // A non-activating panel can ignore the first click; accepting first mouse makes it count.
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
+    /// The pointer's x in the page's 270-wide design pixels, as `clientX` was.
+    private func designX(_ event: NSEvent) -> Double {
+        Double(convert(event.locationInWindow, from: nil).x * 270 / max(bounds.width, 1))
+    }
+
+    // Drag to turn him; a plain click still counts as a click.
+    override func mouseDown(with event: NSEvent) { motion.dragBegan(x: designX(event), now: now); schedule() }
+
+    override func mouseDragged(with event: NSEvent) { motion.dragMoved(x: designX(event), now: now); schedule() }
+
     override func mouseUp(with event: NSEvent) {
-        if bounds.contains(convert(event.locationInWindow, from: nil)) { onClicked?() }
+        if motion.dragEnded() { onClicked?() }
+        schedule()
+    }
+
+    // Enter and Space count as a click, as on the page's button. His panel never becomes key
+    // (it must not take focus when he drops), so these only arrive if something else gives him focus.
+    override var acceptsFirstResponder: Bool { true }
+
+    override func keyDown(with event: NSEvent) {
+        switch event.keyCode {
+        case 36, 76, 49: if !motion.isHidden { onClicked?() }   // Return, keypad Enter, Space
+        default: super.keyDown(with: event)
+        }
+    }
+
+    // MARK: - Accessibility. The page's <button aria-label="…">.
+
+    override func isAccessibilityElement() -> Bool { !motion.isHidden }
+
+    override func accessibilityRole() -> NSAccessibility.Role? { .button }
+
+    override func accessibilityLabel() -> String? {
+        motion.failed ? "Snuffler hit a problem. Show details" : "Snuffler needs you. Show details"
+    }
+
+    override func accessibilityPerformPress() -> Bool {
+        guard !motion.isHidden else { return false }
+        onClicked?()
+        return true
     }
 }

@@ -15,12 +15,13 @@ Each spec's header holds its true state. `README.md` has the summary table. Upda
 - **Spec 003** (`specs/003-snuffler-character.md`): Snuffler as a 3D character with a burrow icon. Built and merged. The human hasn't run its checks yet.
 - **Spec 004** (`specs/004-snuffler-motion-and-fur.md`): physics swing, fur, messy burrow, rope. Built, except the blinking icon. That waits on the human's decision. Don't build it until asked.
 - **Spec 005** (`specs/005-readme.md`): what `README.md` must hold. Follow it when you edit the README.
-- **Spec 006** (`specs/006-snuffler-metal.md`): Snuffler drawn by Metal instead of a web page. You build it, M1 to M5. Stop after each milestone and report. M1 (still image, Debug › Renderer switch) is built, not merged. M2, motion, is next. `app/scripts/compare-renderers/main.swift` checks Metal against WebGL pixel by pixel.
+- **Spec 006** (`specs/006-snuffler-metal.md`): Snuffler drawn by Metal instead of a web page. No WebKit in the app. Built, M1 to M5, not merged. The human hasn't run its on-screen checks yet. `app/scripts/compare-renderers/` and `app/scripts/compare-motion/run.sh` check the Metal version against the old page.
 
 When building Spec 002:
 - `KICKOFF.md` and `KICKOFF-M2.md` are the briefs for M1 and M2, both built. Read them for the known traps, not for what to build next.
-- Read the whole spec first, then `app-assets/snuffler-hanging.html` for the creature's JS API.
-- Copy assets from `app-assets/` into `app/Resources/`. Don't edit the creature's look; that's a design change.
+- Read the whole spec first.
+- Snuffler is drawn by Metal: `app/Resources/snuffler.metal` (his look) and `app/Sources/Hangabouts/SnufflerMotion.swift` (his motion). Don't edit his look; that's a design change.
+- `design/snuffler-hanging.html` is the old web page he was ported from. It is a reference, not part of the app.
 - No third-party dependencies.
 - The human runs the app on macOS; you may be on another platform. Make sure `scripts/bundle.sh` gives clear errors.
 

@@ -1,5 +1,5 @@
 // Snuffler, drawn by Metal. Spec 006.
-// Ported line for line from <script id="fs"> in snuffler-hanging.html. Keep the two in step until M5.
+// Ported line for line from <script id="fs"> in design/snuffler-hanging.html, the old web page, kept as a reference.
 // Compiled at runtime by SnufflerRenderer (device.makeLibrary(source:)); there is no build step.
 //
 // Two passes:
@@ -347,11 +347,12 @@ fragment float4 snuffler_fragment(VOut in [[stage_in]], constant Uniforms &unifo
     return s.pixel(float2(in.position.x, uniforms.uRes.y - in.position.y));
 }
 
-// ---------- pass 2: drop shadow ----------
+// ---------- pass 2: drop shadow, and the slide of the drop and climb ----------
 // Must match CompositeUniforms in Swift.
 struct CompositeUniforms {
     float2 res;      // size of the target, in pixels
     float2 offset;   // the shadow's offset, in pixels (y down)
+    float2 shift;    // the whole picture moved by this many pixels (y down): the drop and the climb
     float sigma;     // the blur's standard deviation, in pixels. 0 = no shadow, pass 1 unchanged
     float lod;       // which mip level of pass 1 to blur from
 };
@@ -360,7 +361,11 @@ fragment float4 composite_fragment(VOut in [[stage_in]],
                                    constant CompositeUniforms &c [[buffer(0)]],
                                    texture2d<float> scene [[texture(0)]],
                                    sampler smp [[sampler(0)]]) {
-    float4 src = scene.sample(smp, in.position.xy / c.res, level(0.));
+    // The page moved him with a CSS transform on the whole canvas, shadow and all. Same here: read pass 1 from where he was.
+    float2 pos = in.position.xy - c.shift;
+    float2 uv = pos / c.res;
+    float onPage = step(0., uv.x) * step(uv.x, 1.) * step(0., uv.y) * step(uv.y, 1.);
+    float4 src = scene.sample(smp, uv, level(0.)) * onPage;
     if (c.sigma <= 0. || src.a > .999) return src;
     // A Gaussian blur of his alpha, 11 x 11 taps. The taps read a mip level whose texels are about
     // half a sigma wide, so the cost doesn't grow with his size. The mip's own softening is taken off sigma.
@@ -372,7 +377,7 @@ fragment float4 composite_fragment(VOut in [[stage_in]],
         for (int i = -5; i <= 5; i++) {
             float2 d = float2(float(i), float(j)) * spacing;
             float w = exp(-dot(d, d) * inv2s2);
-            float2 qp = in.position.xy - c.offset + d;
+            float2 qp = pos - c.offset + d;
             // Nothing outside the page casts a shadow. The ramp is one mip texel wide, so edge texels aren't counted twice.
             float2 e = clamp(min(qp, c.res - qp) / texel + .5, 0., 1.);
             sum += w * e.x * e.y * scene.sample(smp, qp / c.res, level(c.lod)).a;

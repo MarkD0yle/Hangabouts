@@ -2,12 +2,14 @@ import AppKit
 import WebKit
 import os
 
-/// Owns Snuffler's panel and web view, and talks to the page's JS API
-/// (see app/Resources/snuffler-hanging.html). Main thread only.
+/// Owns Snuffler's panel and whichever view draws him. Main thread only.
+/// Until Spec 006 M5 there are two: the web page (app/Resources/snuffler-hanging.html, driven through
+/// its JS API) and the Metal view (SnufflerView). Debug › Renderer picks one; only that one exists.
 @MainActor
 final class CreatureController: NSObject {
     private let panel: CreaturePanel
-    private let webView: CreatureWebView
+    private var webView: CreatureWebView?
+    private var snufflerView: SnufflerView?
     private weak var statusItem: NSStatusItem?
     private let logger = Logger(subsystem: "com.markdoyle.hangabouts", category: "creature")
 
@@ -48,6 +50,14 @@ final class CreatureController: NSObject {
     private(set) var tired: Bool
     static let tiredKey = "creatureTired"
 
+    /// Which engine draws him. WebGL until the Metal one is complete (Spec 006). Saved between launches.
+    enum Renderer: String {
+        case webgl
+        case metal
+    }
+    private(set) var renderer: Renderer
+    static let rendererKey = "creatureRenderer"
+
     /// Size of Snuffler relative to the 180×225 design. Saved between launches.
     private(set) var scale: CGFloat
     static let scaleKey = "creatureScale"
@@ -64,29 +74,12 @@ final class CreatureController: NSObject {
         scale = saved > 0 ? CGFloat(saved) : CreatureController.defaultScale
         idleLife = UserDefaults.standard.bool(forKey: CreatureController.idleLifeKey)
         tired = UserDefaults.standard.bool(forKey: CreatureController.tiredKey)
+        renderer = Renderer(rawValue: UserDefaults.standard.string(forKey: CreatureController.rendererKey) ?? "") ?? .webgl
         panel = CreaturePanel()
-
-        let contentController = WKUserContentController()
-        let config = WKWebViewConfiguration()
-        config.userContentController = contentController
-        webView = CreatureWebView(frame: NSRect(origin: .zero, size: CreaturePanel.baseSize), configuration: config)
 
         super.init()
 
-        // Register before loading: the page posts "ready" as soon as it loads.
-        // The proxy avoids a retain cycle (WKUserContentController holds handlers strongly).
-        contentController.add(WeakMessageProxy(target: self), name: "hangabout")
-
-        // Transparent web view. "drawsBackground" is not public API but is the widely used workaround.
-        webView.setValue(false, forKey: "drawsBackground")
-        webView.underPageBackgroundColor = .clear
-        webView.autoresizingMask = [.width, .height]
-        panel.contentView = webView
-        applyScale()
-        if idleLife { call("hangabout.setIdle(true)") }
-        if tired { call("hangabout.setTired(true)") }
-
-        loadPage()
+        installRenderer()
 
         NotificationCenter.default.addObserver(
             self,
@@ -105,6 +98,22 @@ final class CreatureController: NSObject {
         reconcile()
     }
 
+    /// Debug › Renderer. Swaps the engine that draws him. If he is hanging, he drops again in the new one.
+    func setRenderer(_ new: Renderer) {
+        guard new != renderer else { return }
+        renderer = new
+        if isShowing || climbing {
+            panel.orderOut(nil)
+            isShowing = false
+            shown = nil
+            climbing = false
+            onHangingChanged?(false)
+        }
+        installRenderer()
+        UserDefaults.standard.set(renderer.rawValue, forKey: CreatureController.rendererKey) // after: Metal may have fallen back
+        reconcile()
+    }
+
     /// Moves the page towards `wanted`, one step at a time.
     private func reconcile() {
         guard !climbing, wanted != shown else { return }
@@ -114,11 +123,17 @@ final class CreatureController: NSObject {
             isShowing = true
             shown = pose
             onHangingChanged?(true)
-            call("hangabout.show('\(pose.rawValue)')")
+            if let snufflerView {
+                snufflerView.showStill(failed: pose == .failed) // Spec 006 M1: no drop yet
+                log("shown")
+            } else {
+                call("hangabout.show('\(pose.rawValue)')")
+            }
         } else {
             // The panel is ordered out when the page says "climbed".
             climbing = true
-            call("hangabout.climb()")
+            if snufflerView != nil { didClimb() } // Spec 006 M1: no climb yet
+            else { call("hangabout.climb()") }
         }
     }
 
@@ -166,16 +181,67 @@ final class CreatureController: NSObject {
 
     /// The page is laid out at 270×262 CSS px; page zoom draws it smaller without touching the design.
     private func applyScale() {
-        webView.pageZoom = scale
+        webView?.pageZoom = scale
+        snufflerView?.setZoom(scale)
         panel.setContentSize(scaledSize)
         // Tell the page, so it doesn't draw more pixels than are shown.
         call("hangabout.setZoom(\(Double(scale)))")
     }
 
-    // MARK: - Page
+    // MARK: - Renderer
+
+    /// Builds the view for `renderer` and drops the other one, so only one engine's memory is paid for.
+    private func installRenderer() {
+        webView?.configuration.userContentController.removeAllScriptMessageHandlers()
+        webView = nil
+        snufflerView = nil
+        isReady = false
+        pendingCalls.removeAll()
+
+        if renderer == .metal {
+            do {
+                let view = try SnufflerView(size: CreaturePanel.baseSize)
+                view.onClicked = { [weak self] in
+                    self?.log("clicked")
+                    self?.onClicked?()
+                }
+                view.autoresizingMask = [.width, .height]
+                snufflerView = view
+                panel.contentView = view
+                log(String(format: "Metal renderer ready; shader compiled in %.0f ms", view.renderer.compileSeconds * 1000))
+            } catch {
+                log("Metal renderer failed (\(error)); using WebGL")
+                renderer = .webgl
+            }
+        }
+        if renderer == .webgl { installWebView() }
+        applyScale()
+    }
+
+    private func installWebView() {
+        let contentController = WKUserContentController()
+        let config = WKWebViewConfiguration()
+        config.userContentController = contentController
+        let webView = CreatureWebView(frame: NSRect(origin: .zero, size: CreaturePanel.baseSize), configuration: config)
+        self.webView = webView
+
+        // Register before loading: the page posts "ready" as soon as it loads.
+        // The proxy avoids a retain cycle (WKUserContentController holds handlers strongly).
+        contentController.add(WeakMessageProxy(target: self), name: "hangabout")
+
+        // Transparent web view. "drawsBackground" is not public API but is the widely used workaround.
+        webView.setValue(false, forKey: "drawsBackground")
+        webView.underPageBackgroundColor = .clear
+        webView.autoresizingMask = [.width, .height]
+        panel.contentView = webView
+        if idleLife { call("hangabout.setIdle(true)") }
+        if tired { call("hangabout.setTired(true)") }
+
+        loadPage()
+    }
 
     private func loadPage() {
-        guard let url = Bundle.main.url(forResource: "snuffler-hanging", withExtension: "html") else {
+        guard let webView, let url = Bundle.main.url(forResource: "snuffler-hanging", withExtension: "html") else {
             log("snuffler-hanging.html is missing from the app's Resources")
             return
         }
@@ -184,6 +250,7 @@ final class CreatureController: NSObject {
 
     /// Runs a fixed JS call now, or queues it until the page is ready.
     private func call(_ script: String) {
+        guard let webView else { return } // Metal: motion arrives in Spec 006 M2
         guard isReady else {
             pendingCalls.append(script)
             return
@@ -196,6 +263,7 @@ final class CreatureController: NSObject {
     }
 
     fileprivate func handle(_ message: WKScriptMessage) {
+        guard message.webView === webView else { return } // a page that has since been replaced
         guard let body = message.body as? [String: Any], let type = body["type"] as? String else {
             log("Unreadable message from page")
             return
@@ -213,18 +281,23 @@ final class CreatureController: NSObject {
             log("clicked")
             onClicked?()
         case "climbed":
-            panel.orderOut(nil) // remove the window so nothing invisible blocks clicks
-            isShowing = false
-            shown = nil
-            climbing = false
-            onHangingChanged?(false)
-            log("climbed")
-            reconcile() // something may have needed him again while he climbed
+            didClimb()
         case "error":
             log("page error: \(body["message"] as? String ?? "unknown")")
         default:
             log("unknown message: \(type)")
         }
+    }
+
+    /// He is back in his burrow.
+    private func didClimb() {
+        panel.orderOut(nil) // remove the window so nothing invisible blocks clicks
+        isShowing = false
+        shown = nil
+        climbing = false
+        onHangingChanged?(false)
+        log("climbed")
+        reconcile() // something may have needed him again while he climbed
     }
 
     // MARK: - Placement

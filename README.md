@@ -28,6 +28,7 @@ Built so far: Busy and Needs you. Done and Failed come in Spec 002's last milest
 | [003](specs/003-snuffler-character.md) | Snuffler as a 3D character, with a burrow icon | In progress (built, checks not run) |
 | [004](specs/004-snuffler-motion-and-fur.md) | Physics swing, fur, messy burrow, rope | Waiting on a decision |
 | [005](specs/005-readme.md) | This README | In progress |
+| [006](specs/006-snuffler-metal.md) | Snuffler drawn by Metal, no WebKit, less memory | In progress (M1 of 5 built) |
 
 Each spec's header holds the detail. Later: answer prompts from the creature's card.
 
@@ -77,7 +78,7 @@ Full steps, scenarios and pass criteria are in [`specs/001-hook-reliability.md`]
 ## Repo layout
 
 ```
-specs/       Test, build and design specs, 001 to 005
+specs/       Test, build and design specs, 001 to 006
 harness/     Spec 001: local listener, scenario tagger and analyser (Node 18+, no packages)
 sandbox/     Spec 001: throwaway Claude Code project, hooks post to the listener on :7777
 sandbox-002/ Spec 002: throwaway Claude Code project, hooks post to the app on :7788

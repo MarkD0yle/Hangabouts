@@ -29,6 +29,12 @@ final class CreatureController: NSObject {
     /// The app delegate swaps the menu bar icon between his head and his burrow.
     var onHangingChanged: ((Bool) -> Void)?
 
+    /// Called when Snuffler is clicked (or activated from the keyboard).
+    var onClicked: (() -> Void)?
+
+    /// Where his panel is, in screen coordinates. The card hangs under it.
+    var panelFrame: NSRect { panel.frame }
+
     /// Width of the swing's two ropes where they leave the top of the page at 100%, in points.
     /// The burrow icon draws the top of them.
     static let ropeWidthAtFullSize: CGFloat = 9.5
@@ -204,7 +210,8 @@ final class CreatureController: NSObject {
         case "shown":
             log("shown")
         case "clicked":
-            log("clicked") // the card comes in M4
+            log("clicked")
+            onClicked?()
         case "climbed":
             panel.orderOut(nil) // remove the window so nothing invisible blocks clicks
             isShowing = false

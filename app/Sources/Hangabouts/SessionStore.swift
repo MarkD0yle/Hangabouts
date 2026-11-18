@@ -35,6 +35,9 @@ struct Session {
     /// Needs you because auto mode blocked a tool call. Unlike a prompt, the end of the turn doesn't answer it.
     var blocked = false
     var cwd: String?
+    /// Bundle id of the app that was in front when you last sent this session a prompt.
+    /// That's the terminal (or other app) the session lives in. "Go to terminal" brings it forward.
+    var hostApp: String?
     /// When the session entered its current state. Picks the oldest when several need you.
     var since: Date
 
@@ -94,6 +97,16 @@ final class SessionStore {
         sessions.values.max { a, b in
             a.state.priority != b.state.priority ? a.state.priority < b.state.priority : a.since > b.since
         }
+    }
+
+    /// Sessions that are Needs you or Failed, besides the one Snuffler speaks for.
+    var othersWaiting: Int {
+        max(0, sessions.values.filter { $0.state == .needsYou || $0.state == .failed }.count - 1)
+    }
+
+    /// Remembers which app a session lives in. Not worth an `onChange`: nothing on screen shows it.
+    func noteHostApp(_ bundleID: String, for id: String) {
+        sessions[id]?.hostApp = bundleID
     }
 
     // MARK: - Events

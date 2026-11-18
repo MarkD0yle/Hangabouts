@@ -8,6 +8,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let sessions = SessionStore()
     private let server = HookServer()
     private let eventLog = EventLog()
+    private let card = CardController()
+
+    /// "Hide for 10 minutes": Snuffler stays up until this time, whatever the sessions say.
+    private var snoozedUntil: Date?
+    private var snoozeTimer: Timer?
+    private static let snoozeLength: TimeInterval = 10 * 60
+    private static let fallbackTerminal = "com.apple.Terminal"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength) // the icon is wider than it is tall
@@ -16,6 +23,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         creature = CreatureController(statusItem: statusItem)
         creature.onHangingChanged = { [weak self] hanging in self?.updateIcon(hanging: hanging) }
+        creature.onClicked = { [weak self] in self?.toggleCard() }
+        card.onGoToTerminal = { [weak self] in self?.goToTerminal() }
+        card.onHideForTenMinutes = { [weak self] in self?.hideForTenMinutes() }
         updateIcon(hanging: false)
 
         // The menu is rebuilt each time it opens (menuNeedsUpdate), so the session list is always current.
@@ -32,9 +42,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         server.onEvent = { [weak self] in self?.received($0) }
         server.start()
 
-        // For checking a build from a terminal: Hangabouts --simulate-needs
+        // For checking a build from a terminal: Hangabouts --simulate-needs [--open-card]
         if CommandLine.arguments.contains("--simulate-needs") {
             perform(#selector(simulateNeedsYou), with: nil, afterDelay: 1)
+            if CommandLine.arguments.contains("--open-card") {
+                perform(#selector(toggleCard), with: nil, afterDelay: 4)
+            }
         }
     }
 
@@ -52,18 +65,88 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func received(_ event: HookEvent) {
         let stateAfter = sessions.apply(event)
         eventLog.append(event, stateAfter: stateAfter?.rawValue)
-        if event.payload["session_id"] as? String == nil {
+        guard let id = event.payload["session_id"] as? String else {
             creature.log("\(event.name) had no session_id; logged and ignored")
+            return
+        }
+        // You just typed into this session, so the app in front is where it lives.
+        // (SessionStart would be the natural moment, but it doesn't arrive over HTTP hooks.)
+        if event.name == "UserPromptSubmit" || event.name == "SessionStart",
+           let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
+           front != Bundle.main.bundleIdentifier {
+            sessions.noteHostApp(front, for: id)
         }
     }
 
     /// Snuffler hangs for the highest-priority session: Failed, then Needs you. Otherwise he stays up.
     private func sessionsChanged() {
-        switch sessions.top?.state {
-        case .failed: creature.present(.failed)
-        case .needsYou: creature.present(.needs)
-        default: creature.present(nil)
+        let top = sessions.top
+        let pose: CreatureController.Pose?
+        switch top?.state {
+        case .failed: pose = .failed
+        case .needsYou: pose = .needs
+        default: pose = nil
         }
+
+        let snoozed = snoozedUntil.map { $0 > Date() } ?? false
+        creature.present(snoozed ? nil : pose)
+
+        // The card follows the session Snuffler speaks for, and goes when he goes.
+        if let top, pose != nil, !snoozed {
+            card.model.failed = (pose == .failed)
+            card.model.reason = top.reason
+            card.model.folder = top.folderName
+            card.model.since = top.since
+            card.model.othersWaiting = sessions.othersWaiting
+            if card.isOpen { card.layout() }
+        } else {
+            card.close()
+        }
+    }
+
+    // MARK: - Card (M4)
+
+    @objc private func toggleCard() {
+        if card.isOpen {
+            card.close()
+        } else if creature.isShowing, !card.justClosed {
+            card.open(under: creature.panelFrame)
+        }
+    }
+
+    /// Brings the session's app forward. It can't pick the right window or tab.
+    private func goToTerminal() {
+        let wanted = sessions.top?.hostApp ?? AppDelegate.fallbackTerminal
+        card.close()
+        let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: wanted)
+            ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: AppDelegate.fallbackTerminal)
+        guard let url else {
+            creature.log("Go to terminal: no app found for \(wanted)")
+            return
+        }
+        // Opening an app that is already running just brings it forward.
+        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { [weak self] _, error in
+            guard let error else { return }
+            DispatchQueue.main.async { self?.creature.log("Go to terminal failed: \(error.localizedDescription)") }
+        }
+    }
+
+    /// Sends Snuffler up without clearing any state. He comes back if a session still needs you.
+    private func hideForTenMinutes() {
+        snoozedUntil = Date().addingTimeInterval(AppDelegate.snoozeLength)
+        snoozeTimer?.invalidate()
+        snoozeTimer = Timer.scheduledTimer(withTimeInterval: AppDelegate.snoozeLength, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.endSnooze() }
+        }
+        sessionsChanged()
+    }
+
+    private func endSnooze() {
+        snoozeTimer?.invalidate()
+        snoozeTimer = nil
+        guard snoozedUntil != nil else { return }
+        snoozedUntil = nil
+        sessionsChanged()
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
@@ -84,6 +167,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Debug actions
 
     @objc private func simulateNeedsYou() {
+        endSnooze() // a debug action should always be visible
         // Already simulated: give him a push instead, as in M2.
         if !sessions.simulateNeedsYou() { creature.nudge() }
     }
@@ -94,6 +178,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func clearAll() {
+        endSnooze()
         sessions.clearAll()
     }
 

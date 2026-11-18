@@ -145,9 +145,18 @@ The app keeps state **per Claude Code session** (key: `session_id`). Ignore even
   - how long it's been waiting
   - "+N more waiting" if there are others
 - Buttons:
-  - **Go to terminal** brings the terminal app forward. Use the app named in settings (default: whichever terminal app was frontmost when that session's `SessionStart` arrived; fall back to Terminal).
+  - **Go to terminal** brings the session's app forward: whichever app was frontmost when you last sent that session a prompt. Falls back to Terminal.
   - **Hide for 10 minutes** sends Snuffler up without clearing the state.
-- `Escape` or clicking elsewhere closes the card.
+- `Escape`, clicking elsewhere, or clicking Snuffler again closes the card.
+
+As built in M4:
+
+- **The app is noted at `UserPromptSubmit`, not `SessionStart`.** `SessionStart` doesn't arrive over HTTP hooks. A prompt is also the better moment: you have just typed in that app.
+- **It can't pick the right window or tab.** It only brings the app forward.
+- **No setting to name a terminal app yet.** Add one if the default guesses wrong.
+- **Hide for 10 minutes hides everything.** A different session that needs you in that time won't show either. Debug › Simulate Needs you and Clear all end the hide early.
+- **The card takes the keyboard while it is open,** so Escape works. It never opens on its own: only after a click on Snuffler.
+- **Debug:** `Hangabouts --simulate-needs --open-card` opens the card with no click, for checking a build from a terminal.
 
 ### Menu bar menu
 

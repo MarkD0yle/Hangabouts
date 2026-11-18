@@ -42,9 +42,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         server.onEvent = { [weak self] in self?.received($0) }
         server.start()
 
-        // For checking a build from a terminal: Hangabouts --simulate-needs [--open-card]
+        // For checking a build from a terminal: Hangabouts --simulate-needs [--open-card] [--then-clear]
         if CommandLine.arguments.contains("--simulate-needs") {
             perform(#selector(simulateNeedsYou), with: nil, afterDelay: 1)
+            if CommandLine.arguments.contains("--then-clear") {
+                perform(#selector(clearAll), with: nil, afterDelay: 8)
+            }
             if CommandLine.arguments.contains("--open-card") {
                 perform(#selector(toggleCard), with: nil, afterDelay: 4)
             }

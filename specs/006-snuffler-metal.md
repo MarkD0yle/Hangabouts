@@ -1,6 +1,6 @@
 # Spec 006: Snuffler in Metal (no WebKit)
 
-**Status:** Built, M1 to M5. WebKit is gone from the app. Not merged. The human hasn't run the on-screen checks (E5, E6, most of E7).
+**Status:** Built and merged, M1 to M5. WebKit is gone from the app. The human hasn't run the on-screen checks (E5, E6, most of E7).
 **Measured (M4 Mac, 35%):** resting 19 MB, hanging still 21 MB, one process. With idle life on: about 80 MB and 8% CPU while he animates (WebGL was about 105 MB and 21%).
 **Owner:** Mark (product and design), Claude Code (build)
 **Depends on:** Specs 003 and 004. The look, motion, poses and Swift-facing API stay the same. Only the engine underneath changes.

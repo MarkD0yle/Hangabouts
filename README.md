@@ -28,7 +28,7 @@ Built so far: Busy and Needs you. Done and Failed come in Spec 002's last milest
 | [003](specs/003-snuffler-character.md) | Snuffler as a 3D character, with a burrow icon | In progress (built, checks not run) |
 | [004](specs/004-snuffler-motion-and-fur.md) | Physics swing, fur, messy burrow, rope | Waiting on a decision |
 | [005](specs/005-readme.md) | This README | In progress |
-| [006](specs/006-snuffler-metal.md) | Snuffler drawn by Metal, no WebKit, less memory | Built, checks not run |
+| [006](specs/006-snuffler-metal.md) | Snuffler drawn by Metal, no WebKit, less memory | In progress (built, checks not run) |
 
 Each spec's header holds the detail. Later: answer prompts from the creature's card.
 

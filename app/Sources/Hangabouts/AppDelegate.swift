@@ -57,6 +57,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sender.state = creature.idleLife ? .on : .off
     }
 
+    @objc private func pump() {
+        creature.pump()
+    }
+
+    @objc private func swapArms() {
+        creature.swapArms()
+    }
+
+    @objc private func toggleTired(_ sender: NSMenuItem) {
+        creature.setTired(!creature.tired)
+        sender.state = creature.tired ? .on : .off
+    }
+
     /// Debug › Size submenu. Tags are percentages.
     private func sizeMenuItem() -> NSMenuItem {
         let item = NSMenuItem(title: "Size", action: nil, keyEquivalent: "")
@@ -112,6 +125,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let idle = action("Idle life (blink, sniff)", #selector(toggleIdleLife(_:))) // debug-only, off by default
         idle.state = creature.idleLife ? .on : .off
         debugMenu.addItem(idle)
+        debugMenu.addItem(action("Pump", #selector(pump)))            // Spec 004
+        debugMenu.addItem(action("Swap arms", #selector(swapArms)))   // Spec 004
+        let tired = action("Tired (swap arms every 9 s)", #selector(toggleTired(_:))) // Spec 004, off by default
+        tired.state = creature.tired ? .on : .off
+        debugMenu.addItem(tired)
         debugMenu.addItem(disabled("Short escalation timers")) // M5
         debugMenu.addItem(disabled("Open event log"))          // M3
         debug.submenu = debugMenu

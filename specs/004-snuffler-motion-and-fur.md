@@ -1,6 +1,6 @@
 # Spec 004: Snuffler's motion, fur and burrow
 
-**Status:** Part done. The creature page is changed and ready to test. The menu bar icon changes are still to build in Swift.
+**Status:** Part done. The creature page, the messy burrow, the rope and the debug menu are built and ready to test. The blinking icon (change 7) waits on a decision.
 **Owner:** Mark (product and design), Claude Code (build)
 **Depends on:** Spec 003. The events, states, hook server and card are unchanged.
 **Where it came from:** Mark's review of Snuffler on a Claude Design canvas ("Snuffler — Hangabouts character"). Each change below matches a comment from that review.
@@ -14,8 +14,8 @@
 | 2 | Physics swing, driven by his body | Creature page (JS + shader) | Done |
 | 3 | Arm swap when tired | Creature page (JS + shader) | Done, **off by default** |
 | 4 | Fur | Creature page (shader) | Done |
-| 5 | Messy burrow | `MenuBarIcon.swift` | **To build** |
-| 6 | Rope that looks like rope | `MenuBarIcon.swift` | **To build** |
+| 5 | Messy burrow | `MenuBarIcon.swift` | Done |
+| 6 | Rope that looks like rope | `MenuBarIcon.swift` | Done |
 | 7 | Blinking burrow icon | `MenuBarIcon.swift` + `CreatureController.swift` | **To build**, open question |
 
 The two copies of the creature, `app-assets/snuffler-hanging.html` and `app/Resources/snuffler-hanging.html`, are still identical.
@@ -83,7 +83,7 @@ He stops drawing once everything is still, as before. "Still" now means everythi
 - His outline breaks into strands, with a few stray hairs just past it.
 - Fur only: the eyes, nose, monocle, satchel, sign, rope and bar stay smooth.
 
-## 5. Messy burrow (to build)
+## 5. Messy burrow (done)
 
 Reference drawings: `design/burrow-icon-resting.svg` and `design/burrow-icon-hanging.svg`. They use the same 100×100 grid as `MenuBarIcon.swift`, so the numbers carry straight across.
 
@@ -92,14 +92,15 @@ Reference drawings: `design/burrow-icon-resting.svg` and `design/burrow-icon-han
 - More loose soil: two outlined clods at the sides, four crumbs, two grey pebbles. Positions and colours are in the SVGs.
 - The tiny crumbs are under 1 px at real size. If they blur into a halo, drop them and keep the two clods.
 
-## 6. Rope that looks like rope (to build)
+## 6. Rope that looks like rope (done)
 
 The old rope was a flat bar with vertical stripes. Now:
 
 - **Twist:** diagonal bands at -38°, `#CCA86B` and `#8F6C3A`, repeating every 0.7 × the rope width. Same colours as the rope on the panel.
 - **Roundness:** light on the left (`#FFF4DC` at 35%) and dark on the right (`#2B1A0C` at 45%).
 - **Edges:** a thin `#4A2F1A` line down each side, 0.12 × the rope width (at least 0.9 grid units).
-- Draw the twist as clipped diagonal bands in Swift.
+- Drawn as clipped diagonal bands in Swift.
+- The rope is clipped to "inside the opening or outside the mound", so it comes out of the hole. The old code redrew the front lip over it, which left a faint seam at y = 58.
 
 ## 7. Blinking burrow icon (to build, open question)
 
@@ -112,7 +113,7 @@ What the canvas does: the resting icon blinks every 4.5 s, for about 0.16 s.
   - (b) Every 20–30 s, rare enough not to draw the eye.
   - (c) Only while an agent is working, so a blink means "busy" and the drop means "needs you". This fits Hangabouts best.
 
-## Debug menu additions
+## Debug menu additions (done)
 
 | Item | Calls |
 |---|---|

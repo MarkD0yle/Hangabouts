@@ -1,6 +1,6 @@
 # Spec 003: Snuffler, the character
 
-**Status:** Built on branch `spec-002-m2`. Not yet tested against the checks at the end.
+**Status:** In progress. Built and merged to `main`. Not yet tested against the checks at the end.
 **Owner:** Mark (product and design), Claude Code (build)
 **Depends on:** Spec 002. This spec replaces the creature and the menu bar icon from that spec. Events, states, the hook server and the card are unchanged.
 **Written to stand alone.** It can be added to a Claude project as background without the rest of the repo.

@@ -8,13 +8,16 @@ Hangabouts: animated creatures in the macOS menu bar that show the status of AI 
 
 ## Current phase
 
-Two specs run in parallel:
+Each spec's header holds its true state. `README.md` has the summary table. Update both, and this section, in the same pull request when a milestone merges.
 
-- **Spec 001** (`specs/001-hook-reliability.md`): tests whether Claude Code hook events are reliable. The human runs it.
-- **Spec 002** (`specs/002-test-hangabout.md`): build the test app in `app/`. You build it, milestone by milestone (M1 to M5). Stop after each milestone so the human can run it.
+- **Spec 001** (`specs/001-hook-reliability.md`): tests whether Claude Code hook events are reliable. The human runs it. Ready to run.
+- **Spec 002** (`specs/002-test-hangabout.md`): build the test app in `app/`. You build it, milestone by milestone (M1 to M5). Stop after each milestone so the human can run it. M1 to M4 are merged. M5, polish for the test, is next.
+- **Spec 003** (`specs/003-snuffler-character.md`): Snuffler as a 3D character with a burrow icon. Built and merged. The human hasn't run its checks yet.
+- **Spec 004** (`specs/004-snuffler-motion-and-fur.md`): physics swing, fur, messy burrow, rope. Built, except the blinking icon. That waits on the human's decision. Don't build it until asked.
+- **Spec 005** (`specs/005-readme.md`): what `README.md` must hold. Follow it when you edit the README.
 
 When building Spec 002:
-- Start from `KICKOFF.md`. It has the M1 brief and known traps.
+- `KICKOFF.md` and `KICKOFF-M2.md` are the briefs for M1 and M2, both built. Read them for the known traps, not for what to build next.
 - Read the whole spec first, then `app-assets/snuffler-hanging.html` for the creature's JS API.
 - Copy assets from `app-assets/` into `app/Resources/`. Don't edit the creature's look; that's a design change.
 - No third-party dependencies.

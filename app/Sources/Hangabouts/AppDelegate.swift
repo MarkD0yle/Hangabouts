@@ -122,7 +122,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         debugMenu.addItem(disabled("Simulate Done"))           // M5
         debugMenu.addItem(action("Clear all", #selector(clearAll)))
         debugMenu.addItem(sizeMenuItem())
-        let idle = action("Idle life (blink, sniff)", #selector(toggleIdleLife(_:))) // debug-only, off by default
+        let idle = action("Idle life (blink, sniff, pump, swap arms)", #selector(toggleIdleLife(_:))) // debug-only, off by default
         idle.state = creature.idleLife ? .on : .off
         debugMenu.addItem(idle)
         debugMenu.addItem(action("Pump", #selector(pump)))            // Spec 004

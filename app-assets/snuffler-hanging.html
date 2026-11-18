@@ -318,7 +318,7 @@ void main(){
   const hit = document.getElementById('hit');
   const canvas = document.getElementById('gl');
   const REST = 0.95;                       // resting turn: three-quarter view, facing right
-  let reduced = false, alive = false, tired = false, zoom = 1, timers = [], tiredTimer = 0, pose = 'needs';
+  let reduced = false, alive = false, tired = false, zoom = 1, timers = [], tiredTimer = 0, idleNext = 'pump', pose = 'needs';
   const post = (m) => { try { window.webkit.messageHandlers.hangabout.postMessage(m); } catch (e) { console.log('hangabout', m); } };
   const clear = () => { timers.forEach(clearTimeout); timers = []; };
   const later = (ms, fn) => timers.push(setTimeout(fn, ms));
@@ -398,10 +398,16 @@ void main(){
     // as the tired hand lets go, his body drops onto the other hand and sways
     later(1150, () => { const k = S.hold === 'left' ? -1 : 1; S.phV += 0.9 * k; S.lgV += 1.4 * k; wake(1); });
   }
+  // While he hangs: Tired swaps arms every 9 s. Idle life takes turns pumping the swing and swapping arms, every 8 to 14 s.
   function loopTired(firstDelay){
     clearTimeout(tiredTimer);
-    if (!tired || reduced) return;
-    tiredTimer = setTimeout(() => { swapArms(); loopTired(9); }, firstDelay * 1000);
+    if (reduced || !(tired || alive)) return;
+    tiredTimer = setTimeout(() => {
+      if (stage.classList.contains('hidden')) return;
+      if (alive && idleNext === 'pump') { pump(2.6); idleNext = 'swap'; }
+      else { swapArms(); idleNext = 'pump'; }
+      loopTired(tired ? 9 : 8 + Math.random() * 6);
+    }, firstDelay * 1000);
   }
   function armVals(t){
     const sm = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
@@ -476,10 +482,10 @@ void main(){
     },
     hide(){ clear(); clearTimeout(tiredTimer); stage.className = 'hidden'; },
     setReducedMotion(on){ reduced = !!on; stage.classList.toggle('reduced', reduced); wake(0.3); },
-    // blink, sniff, breathing, tail sway. Off by default: the spec says he hangs completely still.
-    setIdle(on){ alive = !!on; wake(0.3); },
+    // blink, sniff, breathing, tail sway, and now and then a pump or an arm swap. Off by default: the spec says he hangs completely still.
+    setIdle(on){ alive = !!on; wake(0.3); if ((alive || tired) && !stage.classList.contains('hidden')) loopTired(3); else clearTimeout(tiredTimer); },
     // every 9 s he swaps the arm he hangs by, looking tired. Off by default: see Spec 004's risks.
-    setTired(on){ tired = !!on; if (tired && !stage.classList.contains('hidden')) loopTired(2); else clearTimeout(tiredTimer); },
+    setTired(on){ tired = !!on; if ((tired || alive) && !stage.classList.contains('hidden')) loopTired(2); else clearTimeout(tiredTimer); },
     swapArms(){ swapArms(); },
     // angle in radians: negative faces left, 0 faces you, positive faces right
     turn(angle){ turnTo(angle); },

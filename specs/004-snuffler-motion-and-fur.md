@@ -76,6 +76,8 @@ He stops drawing once everything is still, as before. "Still" now means everythi
 | `setTired(true or false)` | Swaps arms every 9 s while he hangs. Off by default. |
 | `swapArms()` | One swap now. For a debug menu item. |
 
+**Idle life** (`setIdle(true)`, Debug › Idle life) now includes these too: while he hangs, every 8–14 s he takes turns pumping the swing and swapping arms. Off by default, like the rest of idle life.
+
 ## 4. Fur
 
 - Light and dark strands that run downward and move with him.

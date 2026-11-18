@@ -23,7 +23,7 @@ final class CreatureController: NSObject {
     /// The burrow icon draws the top of them.
     static let ropeWidthAtFullSize: CGFloat = 9.5
 
-    /// Blink, sniff, breathing and a tail sway while he hangs. Off by default:
+    /// Blink, sniff, breathing, a tail sway, and now and then a pump or an arm swap while he hangs. Off by default:
     /// the spec says he hangs completely still. Saved between launches.
     private(set) var idleLife: Bool
     static let idleLifeKey = "creatureIdleLife"

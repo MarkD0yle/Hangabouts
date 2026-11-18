@@ -23,10 +23,14 @@ final class CreatureController: NSObject {
     /// The burrow icon draws the top of them.
     static let ropeWidthAtFullSize: CGFloat = 9.5
 
-    /// Blink, sniff, breathing and a tail sway while he hangs. Off by default:
+    /// Blink, sniff, breathing, a tail sway, and now and then a pump or an arm swap while he hangs. Off by default:
     /// the spec says he hangs completely still. Saved between launches.
     private(set) var idleLife: Bool
     static let idleLifeKey = "creatureIdleLife"
+
+    /// Every 9 s he swaps the arm he hangs by, looking tired. Off by default (Spec 004 risks). Saved between launches.
+    private(set) var tired: Bool
+    static let tiredKey = "creatureTired"
 
     /// Size of Snuffler relative to the 180×225 design. Saved between launches.
     private(set) var scale: CGFloat
@@ -43,6 +47,7 @@ final class CreatureController: NSObject {
         let saved = UserDefaults.standard.double(forKey: CreatureController.scaleKey)
         scale = saved > 0 ? CGFloat(saved) : CreatureController.defaultScale
         idleLife = UserDefaults.standard.bool(forKey: CreatureController.idleLifeKey)
+        tired = UserDefaults.standard.bool(forKey: CreatureController.tiredKey)
         panel = CreaturePanel()
 
         let contentController = WKUserContentController()
@@ -63,6 +68,7 @@ final class CreatureController: NSObject {
         panel.contentView = webView
         applyScale()
         if idleLife { call("hangabout.setIdle(true)") }
+        if tired { call("hangabout.setTired(true)") }
 
         loadPage()
 
@@ -94,6 +100,25 @@ final class CreatureController: NSObject {
         idleLife = on
         UserDefaults.standard.set(on, forKey: CreatureController.idleLifeKey)
         call("hangabout.setIdle(\(on))")
+    }
+
+    /// Debug › Pump. He pumps the swing himself for a few beats. Only while he hangs.
+    func pump() {
+        guard isShowing else { return }
+        call("hangabout.nudge(2)")
+    }
+
+    /// Debug › Swap arms. One swap now. Only while he hangs.
+    func swapArms() {
+        guard isShowing else { return }
+        call("hangabout.swapArms()")
+    }
+
+    /// Debug › Tired.
+    func setTired(_ on: Bool) {
+        tired = on
+        UserDefaults.standard.set(on, forKey: CreatureController.tiredKey)
+        call("hangabout.setTired(\(on))")
     }
 
     /// Debug › Size. Resizes Snuffler, and keeps him under the icon if he's showing.

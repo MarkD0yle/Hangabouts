@@ -28,6 +28,8 @@ html,body{margin:0;padding:0;background:transparent;overflow:hidden;width:270px;
 precision highp float;
 uniform vec2 uRes;
 uniform float uYaw, uSwing, uSignSwing, uSignYaw, uBlink, uKick, uTail, uSniff, uFail, uBreathe;
+uniform float uRaiseR, uRaiseL, uShakeR, uShakeL, uTired;
+uniform float uBody, uGrip;   // his body's sway about the gripping hand; which hand grips (1 right, -1 left)   // arm swap: how far each arm is up, a shake of the hand that let go, how tired he looks
 
 float smin(float a, float b, float k){ float h = clamp(.5 + .5*(b-a)/k, 0., 1.); return mix(b, a, h) - k*h*(1.-h); }
 float sdEll(vec3 p, vec3 r){ float k0 = length(p/r); float k1 = length(p/(r*r)); return k0*(k0-1.)/k1; }
@@ -41,8 +43,17 @@ mat2 rot(float a){ float c = cos(a), s = sin(a); return mat2(c,-s,s,c); }
 // The swing: two ropes from the top centre of the page down to a bar. Everything swings about the top.
 // The ropes meet at one point, so the swing twists with him when he turns.
 const float BAR = .46;                       // how far the bar hangs below the top
+const float ARM = .25;                       // shorter hanging arm than the app: his body sits this much closer to the bar
 // world -> Snuffler's own space. The bar is at y = 0; his hand grips it straight above his shoulder.
-vec3 toLocal(vec3 p){ p.xy = rot(uSwing)*p.xy; p.y += BAR; p.xz = rot(-uYaw)*p.xz; return p; }
+// world -> the swing's space (bar at y = 0). The ropes and bar use this.
+vec3 toSwing(vec3 p){ p.xy = rot(uSwing)*p.xy; p.y += BAR; p.xz = rot(-uYaw)*p.xz; return p; }
+// world -> his body. His body also sways about the hand that grips the bar, lagging behind the swing.
+vec3 toLocal(vec3 p){
+  p.xy = rot(uSwing)*p.xy; p.y += BAR;
+  float gx = uGrip*.56*cos(uYaw);           // the gripping hand, seen from the front
+  p.x -= gx; p.xy = rot(uBody)*p.xy; p.x += gx;
+  p.y -= ARM; p.xz = rot(-uYaw)*p.xz; return p;
+}
 
 const vec3 HEAD = vec3(0., -.93, .06);
 const vec3 EYE_L = vec3(-.21, -.805, .36);   // big eye, with the monocle (his left, the near side when he faces right)
@@ -56,23 +67,34 @@ vec3 toSign(vec3 p){
   return q;
 }
 
+// one arm. side 1 = his right, -1 = his left (mirrored). r: 0 down by his side, 1 up gripping the bar.
+// k: a shake of a hand that has just let go. On the way up or down the arm swings out wide.
+float arm(vec3 p, float side, float r, float k){
+  float wide = .26*sin(3.14159*r);
+  vec3 q = vec3(p.x*side, p.y, p.z);
+  vec3 S = mix(vec3(.46,-1.16,.04), vec3(.48,-1.20,0.), r);
+  vec3 E = mix(vec3(.51,-1.34,.09), vec3(.60,-.76,0.), r) + vec3(wide*.6, 0., 0.);
+  vec3 H = mix(vec3(.55,-1.54,.14), vec3(.56,-.03-ARM,0.), r) + vec3(wide + .05*k, 0., .05*k);
+  float d = sdCap(q, S, E, .105, .095);
+  d = smin(d, sdCap(q, E, H, .095, .09), .08);
+  return smin(d, length(q - H) - mix(.105, .128, r), .05);
+}
+float droop(){ return max(uFail, .6*uTired); }
+
 // returns (distance, material). 1 fur, 3 nose, 4 eye, 5 gold, 6 bag, 7 strap, 8 card, 9 dark, 10 rope, 11 wood
 vec2 U(vec2 a, vec2 b){ return a.x < b.x ? a : b; }
 vec2 map(vec3 pw){
   vec3 p = toLocal(pw);
+  vec3 pb = toSwing(pw);                     // swing space: the bar at y = 0
   float br = 1. + uBreathe;
   float d = sdEll(p - vec3(0., -1.50, -.02), vec3(.50*br, .54, .47*br));
   d = smin(d, length(p - HEAD) - .40, .15);
-  // hanging arm (his right): straight up from the shoulder to a fist round the bar, bowed out a little past the ear
-  d = smin(d, sdCap(p, vec3(.48,-1.20,0.), vec3(.60,-.66,0.), .105, .095), .09);
-  d = smin(d, sdCap(p, vec3(.60,-.66,0.), vec3(.56,-.06,0.), .095, .09), .08);
-  d = smin(d, sdEll(p - vec3(.56,-.005,0.), vec3(.13,.125,.13)), .05);
-  // resting arm (his left) and hand
-  d = smin(d, sdCap(p, vec3(-.46,-1.16,.04), vec3(-.55,-1.50,.13), .10, .09), .09);
-  d = smin(d, length(p - vec3(-.55,-1.54,.14)) - .105, .05);
+  // arms: one hangs from the bar, the other rests by his side. He swaps them when one gets tired.
+  d = smin(d, arm(p, 1., uRaiseR, uShakeR), .09);
+  d = smin(d, arm(p, -1., uRaiseL, uShakeL), .09);
   // ears (they droop when he's failed)
   vec3 pe = p; pe.x = abs(pe.x);
-  d = smin(d, sdEll(pe - vec3(.33 + .04*uFail, -.63 - .09*uFail, -.02), vec3(.15,.15,.10)), .06);
+  d = smin(d, sdEll(pe - vec3(.33 + .04*droop(), -.63 - .09*droop(), -.02), vec3(.15,.15,.10)), .06);
   // hair tuft
   d = smin(d, sdCap(p, vec3(-.03,-.55,.06), vec3(-.07,-.42,.13), .036, .024), .04);
   d = smin(d, sdCap(p, vec3(.04,-.55,.04), vec3(.07,-.43,.10), .036, .024), .04);
@@ -115,11 +137,23 @@ vec2 map(vec3 pw){
   res = U(res, vec2(sdCap(q, vec3(0.), vec3(0.,-.2,0.), .012, .012), 9.));
   res = U(res, vec2(sdBox(q - vec3(0.,-.47,0.), vec3(.22,.195,.018), .07), 8.));
   // the swing: ropes from the top centre to each end of the bar
-  vec3 ps = p; ps.x = abs(ps.x);
+  vec3 ps = pb; ps.x = abs(ps.x);
   res = U(res, vec2(sdCap(ps, vec3(.03,BAR+.02,0.), vec3(.64,0.,0.), .02, .02), 10.));
   res = U(res, vec2(sdCap(ps, vec3(0.,0.,0.), vec3(.72,0.,0.), .042, .042), 11.));
   res = U(res, vec2(length(ps - vec3(.72,0.,0.)) - .06, 11.));
   return res;
+}
+
+// Fur: value noise stretched along y, so it reads as strands that hang downward. It moves with his body.
+float hash3(vec3 p){ p = fract(p*.3183099 + .1); p *= 17.; return fract(p.x*p.y*p.z*(p.x + p.y + p.z)); }
+float vnoise(vec3 x){
+  vec3 i = floor(x), f = fract(x); f = f*f*(3. - 2.*f);
+  return mix(mix(mix(hash3(i), hash3(i + vec3(1.,0.,0.)), f.x), mix(hash3(i + vec3(0.,1.,0.)), hash3(i + vec3(1.,1.,0.)), f.x), f.y),
+             mix(mix(hash3(i + vec3(0.,0.,1.)), hash3(i + vec3(1.,0.,1.)), f.x), mix(hash3(i + vec3(0.,1.,1.)), hash3(i + vec3(1.,1.,1.)), f.x), f.y), f.z);
+}
+float fur(vec3 pw){
+  vec3 p = toLocal(pw);
+  return .65*vnoise(p*vec3(46.,11.,46.)) + .35*vnoise(p*vec3(97.,23.,97.) + 7.);
 }
 
 vec3 calcN(vec3 p){
@@ -170,7 +204,7 @@ void shade(vec3 pw, vec3 n, float m, out vec3 alb, out float gloss, out float sp
       alb = mix(vec3(.80,.52,.14), vec3(.42,.25,.07), smoothstep(-.15, .15, sin(a*6.5)));
     }
     // pink inside the ears, blush on the cheeks
-    vec2 ec = vec2(abs(p.x) - (.33 + .04*uFail), p.y + .63 + .09*uFail);
+    vec2 ec = vec2(abs(p.x) - (.33 + .04*droop()), p.y + .63 + .09*droop());
     alb = mix(alb, vec3(.96,.55,.48), smoothstep(.105, .065, length(ec)) * step(.0, p.z) * step(abs(p.x), .47));
     alb = mix(alb, vec3(.97,.55,.45), .45*smoothstep(.14, .03, length(vec3(abs(p.x)-.31, p.y+1.03, p.z-.26))));
   } else if (m < 3.5){
@@ -187,6 +221,7 @@ void shade(vec3 pw, vec3 n, float m, out vec3 alb, out float gloss, out float sp
     // eyelid: closes on a blink, half closed when failed
     float lid = mix(1.3, -1.2, uBlink);
     if (big) lid = min(lid, mix(1.3, .22, uFail));
+    lid = min(lid, mix(1.3, .3, uTired));    // heavy lids while he swaps arms
     if ((p.y - c.y)/r > lid){ alb = vec3(.84,.57,.16); gloss = 12.; specAmt = .1; }
   } else if (m < 5.5){
     alb = vec3(.93,.70,.22); gloss = 50.; specAmt = 1.2;
@@ -224,21 +259,39 @@ void main(){
   vec3 ro = vec3((uv.x - .5)*3.4, -(1. - uv.y)*3.3, 3.);
   vec3 rd = vec3(0., 0., -1.);
 
-  float t = 0., minD = 1e3, m = 0.; bool hit = false;
+  float t = 0., minD = 1e3, m = 0., tN = 0., mN = 0.; bool hit = false;
   for (int i = 0; i < 80; i++){
     vec2 h = map(ro + rd*t);
-    minD = min(minD, h.x);
+    if (h.x < minD){ minD = h.x; tN = t; mN = h.y; }
     if (h.x < .0012){ hit = true; m = h.y; break; }
     t += h.x * .92;
     if (t > 6.) break;
   }
   if (!hit){
+    // stray hairs just past the outline of the fur
+    if (mN < 1.5 && minD < .04){
+      vec3 pn = ro + rd*tN; vec3 nn = calcN(pn);
+      float fa = 1. - minD/.04; fa = fa*fa*smoothstep(.4, .8, fur(pn));
+      vec3 alb; float g, s; shade(pn, nn, mN, alb, g, s);
+      vec3 Lh = normalize(vec3(-.48, .78, .62));
+      vec3 col = pow(alb, vec3(2.2)) * (vec3(.30) + vec3(1.,.95,.86)*clamp((dot(nn, Lh) + .32)/1.32, 0., 1.)*1.1);
+      col = pow(col, vec3(.4545));
+      gl_FragColor = vec4(col*fa, fa); return;
+    }
     gl_FragColor = vec4(0.); return;
   }
   vec3 p = ro + rd*t;
-  vec3 n = calcN(p);
+  vec3 n0 = calcN(p), n = n0;
   vec3 alb; float gloss, specAmt;
   shade(p, n, m, alb, gloss, specAmt);
+  float fz = 1.;
+  if (m < 1.5){
+    float f = fur(p);
+    alb *= mix(.80, 1.10, f);                                                   // light and dark strands
+    n = normalize(n + .28*vec3(f - .5, 0., fur(p + vec3(.013)) - .5));          // each strand catches the light a little differently
+    float graze = 1. - max(dot(n0, vec3(0.,0.,1.)), 0.);
+    fz = mix(1., smoothstep(.3, .75, f), smoothstep(.6, .95, graze));         // a broken, fuzzy outline
+  }
   alb = pow(alb, vec3(2.2));
 
   vec3 L = normalize(vec3(-.48, .78, .62));
@@ -254,7 +307,7 @@ void main(){
   col += fres * (.10 + .16*max(n.y, 0.)) * mix(alb, vec3(1.,.95,.85), .5) * occ;   // rim light
   col = pow(col, vec3(.4545));
   // edge antialiasing from how grazing the surface is
-  float a = smoothstep(0., .22, dot(n, V) + .04);
+  float a = smoothstep(0., .22, dot(n0, V) + .04) * fz;
   gl_FragColor = vec4(col*a, a);
 }
 </script>
@@ -265,7 +318,7 @@ void main(){
   const hit = document.getElementById('hit');
   const canvas = document.getElementById('gl');
   const REST = 0.95;                       // resting turn: three-quarter view, facing right
-  let reduced = false, alive = false, zoom = 1, timers = [], pose = 'needs';
+  let reduced = false, alive = false, tired = false, zoom = 1, timers = [], tiredTimer = 0, idleNext = 'pump', pose = 'needs';
   const post = (m) => { try { window.webkit.messageHandlers.hangabout.postMessage(m); } catch (e) { console.log('hangabout', m); } };
   const clear = () => { timers.forEach(clearTimeout); timers = []; };
   const later = (ms, fn) => timers.push(setTimeout(fn, ms));
@@ -289,7 +342,7 @@ void main(){
       gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
       const loc = gl.getAttribLocation(p, 'a'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-      ['uRes','uYaw','uSwing','uSignSwing','uSignYaw','uBlink','uKick','uTail','uSniff','uFail','uBreathe'].forEach(n => U[n] = gl.getUniformLocation(p, n));
+      ['uRes','uYaw','uSwing','uSignSwing','uSignYaw','uBlink','uKick','uTail','uSniff','uFail','uBreathe','uRaiseR','uRaiseL','uShakeR','uShakeL','uTired','uBody','uGrip'].forEach(n => U[n] = gl.getUniformLocation(p, n));
     }
   }
   // Draw only as many pixels as the zoomed page shows, with a little extra for smooth edges.
@@ -302,32 +355,95 @@ void main(){
   }
 
   // ---------- motion ----------
-  const S = { yaw: REST, yawV: 0, yawT: REST, swingAt: -1e9, swingAmp: 0, kickAt: -1e9, busyUntil: 0, last: 0, running: false, drag: null };
+  const S = { yaw: REST, yawV: 0, yawT: REST, th: 0, thV: 0, ph: 0, phV: 0, sg: 0, sgV: 0, lg: 0, lgV: 0, pumpUntil: 0,
+             kickAt: -1e9, busyUntil: 0, last: 0, running: false, drag: null, hold: 'right', swapAt: -1e9 };
   const now = () => performance.now() / 1000;
   const damped = (t, amp, decay, period) => (t < 0 || t > 4) ? 0 : amp * Math.exp(-decay * t) * Math.sin(2 * Math.PI * t / period);
   function wake(sec){ S.busyUntil = Math.max(S.busyUntil, now() + sec); if (!S.running) { S.running = true; S.last = now(); requestAnimationFrame(frame); } }
-  function swing(amp){ S.swingAt = now(); S.swingAmp = amp; wake(4.2); }
+  // ---------- swing physics ----------
+  // The swing is a pendulum. His body hangs off it from the gripping hand; his legs and the sign hang off him.
+  // Each one lags behind the one above it, so motion ripples down through him.
+  const W0 = 2 * Math.PI / 1.1;                          // the swing's own rhythm: about 1.1 s a swing
+  function swing(amp){ S.thV += amp * W0; wake(1); }    // a push: amp is roughly how far it then swings, in radians
+  // He pumps the swing himself: legs kick forward and his body leans back in time with it.
+  function pump(sec){
+    if (reduced) return;
+    if (Math.abs(S.thV) < 0.15) S.thV += 0.45;           // a first push off, so there is a beat to pump with
+    S.pumpUntil = now() + (sec || 2.6); wake(1);
+  }
+  function step(dt){
+    const n = Math.max(1, Math.ceil(dt / 0.004)), h = dt / n;
+    const WB = 2 * Math.PI / 0.85, WL = 2 * Math.PI / 0.5, WS = 2 * Math.PI / 0.6;
+    for (let i = 0; i < n; i++) {
+      const pumping = now() < S.pumpUntil, beat = Math.tanh(S.thV * 5);
+      const thA = -W0 * W0 * Math.sin(S.th) - 1.6 * S.thV + (pumping ? 1.9 * beat : 0);
+      const phA = -WB * WB * (S.ph - (pumping ? -0.12 * beat : 0)) - 3.2 * S.phV - thA;   // body: swung by the swing, leans back while pumping
+      const lgA = -WL * WL * (S.lg - (pumping ? 0.5 * beat : 0)) - 4.0 * S.lgV - (thA + phA);  // legs: trail, or kick while pumping
+      const sgA = -WS * WS * S.sg - 2.2 * S.sgV - (thA + phA);                             // the sign on his nose
+      S.thV += thA * h; S.th += S.thV * h;
+      S.phV += phA * h; S.ph += S.phV * h;
+      S.lgV += lgA * h; S.lg += S.lgV * h;
+      S.sgV += sgA * h; S.sg += S.sgV * h;
+    }
+  }
+  const energy = () => Math.abs(S.th) + Math.abs(S.thV) + Math.abs(S.ph) + Math.abs(S.phV) + Math.abs(S.lg) + Math.abs(S.lgV) + Math.abs(S.sg) + Math.abs(S.sgV);
+  const resetSwing = () => { S.th = S.thV = S.ph = S.phV = S.lg = S.lgV = S.sg = S.sgV = 0; S.pumpUntil = 0; };
+
+  // ---------- arm swap (off by default) ----------
+  // 0 to 3.4 s: the free arm reaches up (0 to 0.6), both hold (to 0.9), the tired arm lets go (to 1.4) and shakes out.
+  function swapArms(){
+    if (stage.classList.contains('hidden')) return;
+    S.hold = S.hold === 'left' ? 'right' : 'left';
+    S.swapAt = now(); wake(3.6);
+    // as the tired hand lets go, his body drops onto the other hand and sways
+    later(1150, () => { const k = S.hold === 'left' ? -1 : 1; S.phV += 0.9 * k; S.lgV += 1.4 * k; wake(1); });
+  }
+  // While he hangs: Tired swaps arms every 9 s. Idle life takes turns pumping the swing and swapping arms, every 8 to 14 s.
+  function loopTired(firstDelay){
+    clearTimeout(tiredTimer);
+    if (reduced || !(tired || alive)) return;
+    tiredTimer = setTimeout(() => {
+      if (stage.classList.contains('hidden')) return;
+      if (alive && idleNext === 'pump') { pump(2.6); idleNext = 'swap'; }
+      else { swapArms(); idleNext = 'pump'; }
+      loopTired(tired ? 9 : 8 + Math.random() * 6);
+    }, firstDelay * 1000);
+  }
+  function armVals(t){
+    const sm = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+    const ts = reduced ? 99 : t - S.swapAt;
+    const up = sm(ts / 0.6), down = 1 - sm((ts - 0.9) / 0.5);
+    const shake = ts > 1.4 && ts < 3.4 ? Math.exp(-2.2 * (ts - 1.4)) * Math.sin(2 * Math.PI * (ts - 1.4) / 0.28) : 0;
+    const tiredness = sm((ts - 0.1) / 0.5) * (1 - sm((ts - 2.6) / 0.6));
+    const left = S.hold === 'left';
+    const rR = left ? down : up, rL = left ? up : down;
+    return { uRaiseR: rR, uRaiseL: rL, uShakeR: left ? shake : 0, uShakeL: left ? 0 : shake, uTired: tiredness,
+             uGrip: (rR - rL) / Math.max(rR + rL, 0.001) };
+  }
 
   function frame(){
     const t = now(), dt = Math.min(t - S.last, 0.05); S.last = t;
     // turn: a spring toward the target, with a little overshoot
     if (reduced) { S.yaw = S.yawT; S.yawV = 0; }
     else { const acc = 46 * (S.yawT - S.yaw) - 8.5 * S.yawV; S.yawV += acc * dt; S.yaw += S.yawV * dt; }
-    const ts = t - S.swingAt;
+    if (!reduced) step(dt);
+    const legs = reduced ? 0 : S.lg * Math.sin(S.yaw) * 1.4;     // legs swing toward the way he faces, or away
     const life = alive && !reduced;
     const blinkPhase = (t % 5.2) / 0.2, sniffT = (t % 7) - 5.4;
     const u = {
       uYaw: S.yaw,
-      uSwing: reduced ? 0 : damped(ts, S.swingAmp, 1.35, 1.05),
-      uSignSwing: reduced ? 0 : damped(ts - 0.13, -S.swingAmp * 1.8, 1.1, 1.05),
+      uSwing: reduced ? 0 : S.th,
+      uBody: reduced ? 0 : S.ph,
+      uSignSwing: reduced ? 0 : S.sg,
       uSignYaw: reduced ? 0 : Math.max(-0.9, Math.min(0.9, -S.yawV * 0.16)),      // the sign lags behind a turn
       uBlink: life && blinkPhase < 1 ? Math.sin(Math.PI * blinkPhase) : 0,
-      uKick: reduced ? 0 : damped(t - S.kickAt, 0.55, 2.2, 0.46),
-      uTail: reduced ? 0 : damped(ts - 0.1, S.swingAmp * 1.8, 1.15, 1.05) + (life ? 0.07 * Math.sin(t * 1.05) : 0),
+      uKick: (reduced ? 0 : damped(t - S.kickAt, 0.55, 2.2, 0.46)) + legs,
+      uTail: (reduced ? 0 : -S.sg * 1.2 - S.phV * 0.08) + (life ? 0.07 * Math.sin(t * 1.05) : 0),
       uSniff: life && sniffT > 0 && sniffT < 1.2 ? Math.sin(sniffT * 15.7) * (1 - sniffT / 1.2) : 0,
       uFail: pose === 'failed' ? 1 : 0,
       uBreathe: life ? 0.012 * Math.sin(t * 1.5) : 0
     };
+    Object.assign(u, armVals(t));
     if (prog) {
       gl.uniform2f(U.uRes, canvas.width, canvas.height);
       for (const k in u) gl.uniform1f(U[k], u[k]);
@@ -336,7 +452,7 @@ void main(){
     }
     // Stop drawing once he is still, so a hanging Snuffler costs nothing. Idle life keeps it running.
     const visible = !stage.classList.contains('hidden');
-    const moving = t < S.busyUntil || Math.abs(S.yawT - S.yaw) > 0.002 || Math.abs(S.yawV) > 0.01 || S.drag;
+    const moving = t < S.busyUntil || t < S.pumpUntil || energy() > 0.004 || Math.abs(S.yawT - S.yaw) > 0.002 || Math.abs(S.yawV) > 0.01 || S.drag;
     if (visible && (moving || life)) requestAnimationFrame(frame); else S.running = false;
   }
   function turnTo(a, sec){ S.yawT = Math.max(-1.45, Math.min(1.45, a)); wake(sec || 1.5); }
@@ -347,26 +463,30 @@ void main(){
       clear(); pose = p === 'failed' ? 'failed' : 'needs';
       stage.className = reduced ? 'reduced' : '';
       hit.setAttribute('aria-label', label || (pose === 'failed' ? 'Snuffler hit a problem. Show details' : 'Snuffler needs you. Show details'));
-      if (reduced) { S.yaw = S.yawT = REST; wake(0.2); post({type:'shown'}); return; }
-      S.yaw = -0.9; S.yawV = 0; S.yawT = REST;            // he spins in as he drops
+      if (reduced) { S.yaw = S.yawT = REST; resetSwing(); wake(0.2); post({type:'shown'}); return; }
+      S.yaw = -0.9; S.yawV = 0; S.yawT = REST; resetSwing();   // he spins in as he drops
       stage.classList.add('dropping'); wake(4.5);
-      later(750, () => { stage.classList.remove('dropping'); swing(0.17); post({type:'shown'}); });
+      // landing: the swing takes his weight and swings; his body and legs carry on and jolt
+      later(750, () => { stage.classList.remove('dropping'); swing(0.17); S.phV -= 1.3; S.lgV -= 2.2; post({type:'shown'}); loopTired(5.5); });
     },
-    // level 1: one settling swing. level 2: bigger swing plus a leg kick.
+    // level 1: a push on the swing. level 2: he pumps it himself with his legs and body for a few beats.
     nudge(level){
       if (reduced || stage.classList.contains('hidden')) return;
-      if (level >= 2) { S.kickAt = now(); swing(0.26); } else swing(0.17);
+      if (level >= 2) pump(2.6); else swing(0.17);
     },
     climb(){
-      clear();
+      clear(); clearTimeout(tiredTimer);
       if (reduced) { stage.className = 'hidden'; post({type:'climbed'}); return; }
       stage.classList.remove('dropping'); stage.classList.add('climbing'); turnTo(0, 1);
       later(650, () => { stage.className = 'hidden'; post({type:'climbed'}); });
     },
-    hide(){ clear(); stage.className = 'hidden'; },
+    hide(){ clear(); clearTimeout(tiredTimer); stage.className = 'hidden'; },
     setReducedMotion(on){ reduced = !!on; stage.classList.toggle('reduced', reduced); wake(0.3); },
-    // blink, sniff, breathing, tail sway. Off by default: the spec says he hangs completely still.
-    setIdle(on){ alive = !!on; wake(0.3); },
+    // blink, sniff, breathing, tail sway, and now and then a pump or an arm swap. Off by default: the spec says he hangs completely still.
+    setIdle(on){ alive = !!on; wake(0.3); if ((alive || tired) && !stage.classList.contains('hidden')) loopTired(3); else clearTimeout(tiredTimer); },
+    // every 9 s he swaps the arm he hangs by, looking tired. Off by default: see Spec 004's risks.
+    setTired(on){ tired = !!on; if ((tired || alive) && !stage.classList.contains('hidden')) loopTired(2); else clearTimeout(tiredTimer); },
+    swapArms(){ swapArms(); },
     // angle in radians: negative faces left, 0 faces you, positive faces right
     turn(angle){ turnTo(angle); },
     // the web view's page zoom, so the canvas isn't drawn larger than it's shown

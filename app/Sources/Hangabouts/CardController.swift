@@ -9,6 +9,20 @@ final class CardModel: ObservableObject {
     @Published var folder = ""
     @Published var since = Date()
     @Published var othersWaiting = 0
+    /// Bundle id of the app the session lives in, if a prompt has told us. Nil until then.
+    @Published var hostApp: String?
+
+    static let claudeDesktop = "com.anthropic.claudefordesktop"
+
+    var hostIsClaude: Bool { hostApp == CardModel.claudeDesktop }
+
+    /// The host app's name for the card's first row. Nil when the app isn't known or isn't installed.
+    var hostName: String? {
+        guard let hostApp else { return nil }
+        if hostIsClaude { return "Claude Code, desktop app" }
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: hostApp) else { return nil }
+        return FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
+    }
 }
 
 /// The small card under Snuffler (Spec 002, "Click and card").
@@ -17,7 +31,8 @@ struct CardView: View {
     let goToTerminal: () -> Void
     let hideForTenMinutes: () -> Void
 
-    static let width: CGFloat = 280
+    /// As narrow as the two buttons allow side by side (measured: 96 + 110 pt, plus spacing and padding).
+    static let width: CGFloat = 244
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -32,6 +47,9 @@ struct CardView: View {
                 }
             }
             VStack(alignment: .leading, spacing: 3) {
+                if let host = model.hostName {
+                    Label(host, systemImage: "macwindow")
+                }
                 Label(model.folder, systemImage: "folder")
                 // Ticks once a second while the card is open.
                 TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -45,9 +63,10 @@ struct CardView: View {
             .foregroundStyle(.secondary)
 
             HStack {
-                Button("Hide for 10 minutes", action: hideForTenMinutes)
+                Button("Hide 10 min", action: hideForTenMinutes)
+                    .accessibilityLabel("Hide for 10 minutes")
                 Spacer()
-                Button("Go to terminal", action: goToTerminal)
+                Button(model.hostIsClaude ? "Go to Claude" : "Go to terminal", action: goToTerminal)
                     .keyboardShortcut(.defaultAction)
             }
         }
@@ -93,6 +112,10 @@ final class CardController: NSObject, NSWindowDelegate {
     private var closedAt = Date.distantPast
 
     private(set) var isOpen = false
+
+    /// Share of Snuffler's panel height that is empty under him when he hangs at rest.
+    /// Measured from the renders in results/spec-006-m1 (about 0.23); kept a little under so the card never touches him.
+    private static let emptyShareBelowSnuffler: CGFloat = 0.18
 
     override init() {
         panel = CardPanel(
@@ -166,7 +189,9 @@ final class CardController: NSObject, NSWindowDelegate {
     func layout() {
         hosting.layoutSubtreeIfNeeded()
         let size = hosting.fittingSize
-        var origin = NSPoint(x: anchor.midX - size.width / 2, y: anchor.minY - size.height - 4)
+        // Snuffler's panel is empty below his sign, so the card tucks up into that space to sit near him.
+        let tuck = anchor.height * CardController.emptyShareBelowSnuffler
+        var origin = NSPoint(x: anchor.midX - size.width / 2, y: anchor.minY + tuck - size.height - 4)
         // Keep it on the screen Snuffler is on.
         if let screen = NSScreen.screens.first(where: { $0.frame.intersects(anchor) }) ?? NSScreen.main {
             let area = screen.visibleFrame.insetBy(dx: 8, dy: 8)

@@ -141,22 +141,27 @@ The app keeps state **per Claude Code session** (key: `session_id`). Ignore even
 - Clicking Snuffler opens a small SwiftUI card under him, anchored to the panel. It shows:
   - the title "Snuffler needs you" or "Snuffler hit a problem"
   - the reason
+  - the session's app, once known: "Claude Code, desktop app", or the app's name
   - the session's folder name (last part of `cwd`)
   - how long it's been waiting
   - "+N more waiting" if there are others
 - Buttons:
   - **Go to terminal** brings the session's app forward: whichever app was frontmost when you last sent that session a prompt. Falls back to Terminal.
-  - **Hide for 10 minutes** sends Snuffler up without clearing the state.
+  - **Go to Claude** replaces it when that app is the Claude desktop app. It opens `claude://code/needs-input`, Claude Code's "sessions waiting for you" view. If the link fails, it brings the app forward instead.
+  - **Hide 10 min** sends Snuffler up for 10 minutes without clearing the state.
 - `Escape`, clicking elsewhere, or clicking Snuffler again closes the card.
 
 As built in M4:
 
 - **The app is noted at `UserPromptSubmit`, not `SessionStart`.** `SessionStart` doesn't arrive over HTTP hooks. A prompt is also the better moment: you have just typed in that app.
-- **It can't pick the right window or tab.** It only brings the app forward.
+- **It can't pick the right window or tab.** It only brings the app forward. The Claude desktop app is the exception.
+- **The Claude link is undocumented.** It was read from the app's bundle. A Claude update could change it. It opens the waiting list, not one session: the hook's `session_id` may not be the desktop app's id.
+- **A desktop session is also spotted by its tools.** Any hook event with a tool named `mcp__ccd_…` marks the session as the Claude desktop app. Until a prompt or such a tool call is seen, the card shows no app row and says Go to terminal.
+- **The card is 244 pt wide, down from 280.** It sits closer to Snuffler: it tucks into the empty space under him.
 - **No setting to name a terminal app yet.** Add one if the default guesses wrong.
-- **Hide for 10 minutes hides everything.** A different session that needs you in that time won't show either. Debug › Simulate Needs you and Clear all end the hide early.
+- **Hide 10 min hides everything.** A different session that needs you in that time won't show either. Debug › Simulate Needs you and Clear all end the hide early.
 - **The card takes the keyboard while it is open,** so Escape works. It never opens on its own: only after a click on Snuffler.
-- **Debug:** `Hangabouts --simulate-needs --open-card` opens the card with no click, for checking a build from a terminal.
+- **Debug:** `Hangabouts --simulate-needs --open-card` opens the card with no click, for checking a build from a terminal. Add `--simulate-claude` to see the Claude desktop card.
 
 ### Menu bar menu
 

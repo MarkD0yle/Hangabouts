@@ -42,9 +42,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         server.onEvent = { [weak self] in self?.received($0) }
         server.start()
 
-        // For checking a build from a terminal: Hangabouts --simulate-needs [--open-card]
+        // For checking a build from a terminal: Hangabouts --simulate-needs [--simulate-claude] [--open-card] [--then-clear]
         if CommandLine.arguments.contains("--simulate-needs") {
             perform(#selector(simulateNeedsYou), with: nil, afterDelay: 1)
+            if CommandLine.arguments.contains("--then-clear") {
+                perform(#selector(clearAll), with: nil, afterDelay: 8)
+            }
             if CommandLine.arguments.contains("--open-card") {
                 perform(#selector(toggleCard), with: nil, afterDelay: 4)
             }
@@ -76,6 +79,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
            front != Bundle.main.bundleIdentifier {
             sessions.noteHostApp(front, for: id)
         }
+        // The Claude desktop app gives its sessions tools named mcp__ccd_…; a terminal session never has them.
+        // This catches desktop sessions whose prompt we missed, e.g. after Hangabouts restarts.
+        if let tool = event.payload["tool_name"] as? String, tool.hasPrefix("mcp__ccd_") {
+            sessions.noteHostApp(CardModel.claudeDesktop, for: id)
+        }
+        if sessions.top?.id == id { card.model.hostApp = sessions.top?.hostApp }
     }
 
     /// Snuffler hangs for the highest-priority session: Failed, then Needs you. Otherwise he stays up.
@@ -96,6 +105,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             card.model.failed = (pose == .failed)
             card.model.reason = top.reason
             card.model.folder = top.folderName
+            card.model.hostApp = top.hostApp
             card.model.since = top.since
             card.model.othersWaiting = sessions.othersWaiting
             if card.isOpen { card.layout() }
@@ -114,10 +124,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    /// Brings the session's app forward. It can't pick the right window or tab.
+    /// Claude Code's "sessions waiting for you" view in the Claude desktop app.
+    /// Read from the app's own bundle, not from any docs, so an update may change it.
+    private static let claudeWaitingLink = URL(string: "claude://code/needs-input")!
+
+    /// Brings the session's app forward. It can't pick the right window or tab,
+    /// except in the Claude desktop app, where a link opens the sessions waiting for you.
     private func goToTerminal() {
         let wanted = sessions.top?.hostApp ?? AppDelegate.fallbackTerminal
         card.close()
+        if wanted == CardModel.claudeDesktop {
+            NSWorkspace.shared.open(AppDelegate.claudeWaitingLink, configuration: NSWorkspace.OpenConfiguration()) { [weak self] _, error in
+                guard let error else { return }
+                DispatchQueue.main.async {
+                    self?.creature.log("Go to Claude link failed: \(error.localizedDescription); bringing the app forward instead")
+                    self?.bringForward(wanted)
+                }
+            }
+            return
+        }
+        bringForward(wanted)
+    }
+
+    private func bringForward(_ wanted: String) {
         let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: wanted)
             ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: AppDelegate.fallbackTerminal)
         guard let url else {
@@ -170,6 +199,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         endSnooze() // a debug action should always be visible
         // Already simulated: give him a push instead, as in M2.
         if !sessions.simulateNeedsYou() { creature.nudge() }
+        // --simulate-claude: pretend the simulated session lives in the Claude desktop app.
+        if CommandLine.arguments.contains("--simulate-claude") {
+            sessions.noteHostApp(CardModel.claudeDesktop, for: SessionStore.debugSessionID)
+            card.model.hostApp = CardModel.claudeDesktop
+        }
     }
 
     @objc private func simulateNeedsYouDelayed() {

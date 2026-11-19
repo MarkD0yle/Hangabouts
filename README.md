@@ -118,3 +118,7 @@ results/     Results from each test run
 - Both answer every hook with `{}`. They never approve or deny a prompt.
 - Hook payloads include file paths and tool inputs. The listener writes them to `logs/`, which is git-ignored. Don't commit it.
 - The app keeps its own event log at `~/Library/Application Support/Hangabouts/events.jsonl`.
+
+## Licence
+
+MIT. See [`LICENSE`](LICENSE).

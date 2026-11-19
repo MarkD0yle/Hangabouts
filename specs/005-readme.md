@@ -24,7 +24,7 @@
 | **Two audiences** | Mark needs run steps. A newcomer needs to know what this is. A long README serves neither. | Idea first, then run steps, then everything else as links. Budget below. |
 | **Promises the product can't keep yet** | The pitch reads like a shipped product. This is a test build with one species, and there is no download. | Say "test build" in the opening lines. Only sell what is built. "Get it" says plainly that you build it yourself. |
 | **Who is the reader?** | A private repo needs less explaining than a public one. | Decided 2026-11-18: write for someone who might try the app. The repo is still private on GitHub. **Mark to make it public** when ready. |
-| **No licence** | Without a `LICENSE` file, nobody else may use or change the code. | **Mark to choose one** before the repo goes public. |
+| **No licence** | Without a `LICENSE` file, nobody else may use or change the code. | Done 2026-11-18: MIT, in `LICENSE` at the repo root. |
 | **Hooks are set up by hand** | A new user must copy a `hooks` block into their Claude Code settings. Easy to get wrong. | The README gives the steps. An installer is not in this spec. |
 | **The name** | "Hangabouts" is a working name. `package.json` still says `agent-bestiary`. | Keep the "(Working name.)" line. Renaming the package is not in this spec. |
 | **Motion wording** | The README can't say "2–3 swings" until Spec 004's damping and arm swap are decided. | Describe the behaviour without numbers: "drops down, swings, then hangs holding a sign". **Mark to confirm.** |
@@ -48,6 +48,7 @@
 | 6 | Run Spec 001 | Today's steps, plus the Node 18+ requirement | As today |
 | 7 | Repo layout | Every top-level folder, one line each | As today, corrected |
 | 8 | Privacy | Both servers, both ports, `logs/` | 4 bullets |
+| 9 | Licence | The licence name and a link to `LICENSE` | 1 line |
 
 Dropped:
 
@@ -64,7 +65,7 @@ Dropped:
 - State that the app answers every hook with `{}` and never approves or denies a prompt.
 - One still image of Snuffler, `design/snuffler-needs-you.png`, cropped from the Spec 006 renders. Replace it if his look changes. No GIFs or video yet.
 - Sell only what is built. No benefit may describe Done, Failed or a download until they exist.
-- No badges, no licence section, no contributing section until the repo is public and has a licence.
+- One licence line at the end, linking to `LICENSE`. No badges and no contributing section until the repo is public.
 
 ## Status table: allowed states
 

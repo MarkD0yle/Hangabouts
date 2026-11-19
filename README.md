@@ -2,11 +2,24 @@
 
 *(Working name.)*
 
-Odd little creatures that show what your AI agents are doing.
+<img src="design/snuffler-needs-you.png" alt="Snuffler hanging from a perch, holding a question mark sign" width="270">
 
-This is a **test build**: a macOS menu bar app with one species, **Snuffler**, driven by Claude Code hooks. Each agent type will get its own species. A creature's behaviour *is* the agent's status, so you can read it at a glance without opening a terminal.
+**Your agent has been waiting on you for ten minutes. You were in another window.**
 
-**Claude Code session?** Read [`CLAUDE.md`](CLAUDE.md) next.
+Hangabouts fixes that. Odd little creatures live in your macOS menu bar and act out what your AI agents are doing. When Claude Code needs you, **Snuffler** drops down on a rope and hangs there holding a sign until you answer.
+
+This is a **test build**: one species, driven by Claude Code hooks. **Claude Code session?** Read [`CLAUDE.md`](CLAUDE.md) next.
+
+## Why you'd want it
+
+- **No more stalled agents.** A permission prompt in a hidden terminal costs you minutes. Snuffler is hard to miss.
+- **No more checking.** Stop flicking back to the terminal "just to see". If he's up in his burrow, the agent is busy.
+- **Quiet until it matters.** No sounds, no notification pile. Motion matches urgency, so he only moves when you're needed.
+- **One click back.** His card says which session is waiting and for how long. **Go to Claude** or **Go to terminal** takes you there.
+- **Not now?** **Hide 10 min** sends him back up.
+- **Private.** It listens on `127.0.0.1` only. Nothing leaves your Mac. It never approves or denies a prompt for you.
+- **Light.** Native Swift and Metal. No Electron, no web view, no third-party dependencies.
+- **He has fur.** And a monocle, and a satchel.
 
 ## The core idea
 
@@ -17,30 +30,17 @@ This is a **test build**: a macOS menu bar app with one species, **Snuffler**, d
 
 The rule: motion matches urgency. Only "needs you" and "failed" are allowed to pull your eye.
 
-Built so far: Busy and Needs you. Done and Failed come in Spec 002's last milestone.
+Built so far: Busy and Needs you. Done and Failed come in Spec 002's last milestone. Each agent type will get its own species.
 
-## Status
+## Get it
 
-| Spec | What | State |
-|---|---|---|
-| [001](specs/001-hook-reliability.md) | Can Claude Code hooks drive the creatures reliably? | Ready to run |
-| [002](specs/002-test-hangabout.md) | The test app: menu bar icon, hook server, Snuffler, card | In progress (M4 of 5 done) |
-| [003](specs/003-snuffler-character.md) | Snuffler as a 3D character, with a burrow icon | In progress (built, checks not run) |
-| [004](specs/004-snuffler-motion-and-fur.md) | Physics swing, fur, messy burrow, rope | Waiting on a decision |
-| [005](specs/005-readme.md) | This README | In progress |
-| [006](specs/006-snuffler-metal.md) | Snuffler drawn by Metal, no WebKit, less memory | In progress (built, checks not run) |
+There is no one-click download yet. You build it yourself, which takes about a minute.
 
-Each spec's header holds the detail. Later: answer prompts from the creature's card.
-
-## Requirements
+You need:
 
 - macOS 14 or later. The app doesn't build anywhere else.
 - Swift 5.9 or later. The Xcode Command Line Tools are enough: `xcode-select --install`.
-- Node 18 or later, for the Spec 001 harness. No packages to install.
 - Claude Code, to send the hook events.
-- No third-party dependencies.
-
-## Run the app
 
 ```bash
 # Terminal A, repo root
@@ -55,9 +55,31 @@ cd sandbox-002 && claude
 - Ask Claude Code for something that needs permission. Snuffler drops down.
 - No Claude Code to hand? Click the icon, then **Debug › Simulate Needs you**. **Clear all** sends him back up.
 
+### Use it with your own projects
+
+- `sandbox-002` is a throwaway project that is already wired up.
+- For every project: copy the `hooks` block from [`sandbox-002/.claude/settings.json`](sandbox-002/.claude/settings.json) into `~/.claude/settings.json`.
+- For one project: copy it into that project's `.claude/settings.json` instead.
+- Start a new Claude Code session afterwards. Hooks are read at startup.
+
 Behaviour, milestones and acceptance tests are in [`specs/002-test-hangabout.md`](specs/002-test-hangabout.md).
 
+## Status
+
+| Spec | What | State |
+|---|---|---|
+| [001](specs/001-hook-reliability.md) | Can Claude Code hooks drive the creatures reliably? | Ready to run |
+| [002](specs/002-test-hangabout.md) | The test app: menu bar icon, hook server, Snuffler, card | In progress (M4 of 5 done) |
+| [003](specs/003-snuffler-character.md) | Snuffler as a 3D character, with a burrow icon | In progress (built, checks not run) |
+| [004](specs/004-snuffler-motion-and-fur.md) | Physics swing, fur, messy burrow, rope | Waiting on a decision |
+| [005](specs/005-readme.md) | This README | In progress |
+| [006](specs/006-snuffler-metal.md) | Snuffler drawn by Metal, no WebKit, less memory | In progress (built, checks not run) |
+
+Each spec's header holds the detail. Later: answer prompts from the creature's card, and a signed download.
+
 ## Run Spec 001
+
+Needs Node 18 or later. No packages to install.
 
 ```bash
 # Terminal A, repo root
